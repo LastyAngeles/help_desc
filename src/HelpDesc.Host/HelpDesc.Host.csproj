@@ -2,5 +2,13 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" />
 		<PackageReference Include="Swashbuckle.AspNetCore" />
+
+		<PackageReference Include="Microsoft.Orleans.Client" />
+		<PackageReference Include="Microsoft.Orleans.Streaming" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\HelpDesc.Api\HelpDesc.Api.csproj" />
+		<ProjectReference Include="..\HelpDesc.Core\HelpDesc.Core.csproj" />
 	</ItemGroup>
 </Project>

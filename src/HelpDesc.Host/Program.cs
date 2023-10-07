@@ -1,8 +1,15 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Orleans.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseOrleansClient(clientBuilder =>
+{
+    clientBuilder.UseLocalhostClustering()
+        .AddMemoryStreams("desc");
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -17,8 +24,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthorization();
 
 app.MapControllers();
 
