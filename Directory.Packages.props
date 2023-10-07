@@ -1,0 +1,24 @@
+<Project>
+
+	<PropertyGroup>
+		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<MicrosoftPackagesVersion>7.0.0</MicrosoftPackagesVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="$(MicrosoftPackagesVersion)" />
+
+		<PackageVersion Include="Microsoft.Orleans.Sdk" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Orleans.Streaming" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Orleans.Client" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Orleans.Server" Version="$(MicrosoftPackagesVersion)" />
+
+		<PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="7.0.9" />
+		<PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+	</ItemGroup>
+</Project>
