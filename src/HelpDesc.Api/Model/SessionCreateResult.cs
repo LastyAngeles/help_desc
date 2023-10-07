@@ -3,15 +3,9 @@
 namespace HelpDesc.Api.Model;
 
 [GenerateSerializer]
-public class SessionCreateResult
+public record SessionCreateResult(string Id, bool Success)
 {
-    public SessionCreateResult(string id, bool success)
-    {
-        Id = id;
-        Success = success;
-    }
+    [Id(0)] public string Id { get; set; } = Id;
 
-    [Id(0)] public string Id { get; set; }
-
-    [Id(1)] public bool Success { get; set; }
+    [Id(1)] public bool Success { get; set; } = Success;
 }
