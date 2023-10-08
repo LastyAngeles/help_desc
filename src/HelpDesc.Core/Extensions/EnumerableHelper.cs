@@ -31,4 +31,15 @@ public static class SolutionHelper
     {
         return primaryKey?.Split(StreamingConst.PrimaryKeySeparator).Skip(1).First();
     }
+
+    public static bool IsTimeInRange(TimeSpan time, TimeSpan start, TimeSpan end)
+    {
+        if (start <= end)
+        {
+            return time >= start && time <= end;
+        }
+
+        // Handle the case where the range spans midnight
+        return time >= start || time <= end;
+    }
 }

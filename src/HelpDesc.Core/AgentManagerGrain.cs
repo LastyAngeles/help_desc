@@ -88,7 +88,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
             }
 
             var availableTeamsBasedOnShift = teamsConfig.CoreTeams
-                .Where(x => IsTimeInRange(currentTime, x.StartWork, x.EndWork)).ToList();
+                .Where(x => SolutionHelper.IsTimeInRange(currentTime, x.StartWork, x.EndWork)).ToList();
             var chosenTeam = availableTeamsBasedOnShift.FirstOrDefault();
 
             if (chosenTeam == null)
@@ -111,17 +111,6 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
             return chosenTeam;
         }
-    }
-
-    private bool IsTimeInRange(TimeSpan time, TimeSpan start, TimeSpan end)
-    {
-        if (start <= end)
-        {
-            return time >= start && time <= end;
-        }
-
-        // Handle the case where the range spans midnight
-        return time >= start || time <= end;
     }
 
     public async Task<Agent> AssignAgent(string sessionId)
