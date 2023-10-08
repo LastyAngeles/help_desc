@@ -18,7 +18,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private readonly TeamsConfig teamsConfig;
 
     //priority => (agentId, availability)
-    public Dictionary<int, List<(string agentIdx, Status status)>> AgentPool { get; set; }
+    public Dictionary<int, List<Agent>> AgentPool { get; set; }
 
     //priority => last allocated id (for round robin)
     public Dictionary<int, string> PriorityRoundRobinMap { get; set; }
@@ -63,8 +63,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
                 var agentStatus = await agentGrain.GetStatus();
 
                 var ret = AgentPool.GetOrAdd(seniorityDescription.Priority,
-                    _ => new List<(string agentIdx, Status status)>());
-                ret.Add((agentId, agentStatus));
+                    _ => new List<Agent>());
+                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
             }
         }
 
@@ -117,9 +117,29 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         return time >= start || time <= end;
     }
 
-    public Task<Agent> AssignAgent(string sessionId)
+    public async Task<Agent> AssignAgent(string sessionId)
     {
-        // TODO: implement (Maxim Meshkov 2023-10-07)
-        throw new NotImplementedException();
+        foreach (var priority in AgentPool.Keys)
+        {
+            var availableAgents = AgentPool[priority].Where(x => x.Availability == Status.Free).ToList();
+
+            if(!availableAgents.Any())
+                continue;
+
+            PriorityRoundRobinMap.TryGetValue(priority, out var lastAllocatedAgentId);
+
+            var assignedAgent = availableAgents.Count == 1 ? availableAgents.Single() : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
+
+            var updatedAgentStatus = await GrainFactory.GetGrain<AgentGrain>(assignedAgent.Id).AssignSession(sessionId);
+
+            assignedAgent.Availability = updatedAgentStatus;
+
+            PriorityRoundRobinMap[priority] = assignedAgent.Id;
+
+            return assignedAgent;
+        }
+
+        //no available agents found
+        return null;
     }
 }
