@@ -17,11 +17,11 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private readonly ILogger<AgentManagerGrain> logger;
     private readonly TeamsConfig teamsConfig;
 
-    //priority => (agentId, availability)
-    private Dictionary<int, List<Agent>> AgentPool { get; set; }
+    //priority => agent
+    private Dictionary<int, List<Agent>> AgentPool { get; } = new();
 
     //priority => last allocated id (for round robin)
-    private Dictionary<int, string> PriorityRoundRobinMap { get; set; }
+    private Dictionary<int, string> PriorityRoundRobinMap { get; } = new();
 
     private double maxQueueCapacity;
     private double maxQueueCapacityMultiplier;
@@ -36,7 +36,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var currentTime = DateTime.Now.TimeOfDay;
-        
+
         var currentTeam = AllocateCurrentTeam();
         if (currentTeam == null)
             return;
@@ -130,13 +130,16 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         {
             var availableAgents = AgentPool[priority].Where(x => x.Availability == Status.Free).ToList();
 
-            if(!availableAgents.Any())
+            if (!availableAgents.Any())
                 continue;
 
             PriorityRoundRobinMap.TryGetValue(priority, out var lastAllocatedAgentId);
 
-            var assignedAgent = availableAgents.Count == 1 ? availableAgents.Single() : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
+            var assignedAgent = availableAgents.Count == 1
+                ? availableAgents.Single()
+                : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
 
+            // TODO: handle overload case (impossible state, but it needs to be respected) (Maxim Meshkov 2023-10-08)
             var updatedAgentStatus = await GrainFactory.GetGrain<AgentGrain>(assignedAgent.Id).AssignSession(sessionId);
 
             assignedAgent.Availability = updatedAgentStatus;
@@ -151,4 +154,21 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     }
 
     public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
+
+    public Task ChangeAgentStatus(string agentId, Status status)
+    {
+        var agent = AgentPool.FirstOrDefault(x => x.Value.Any(y => y.Id == agentId))
+            .Value
+            .FirstOrDefault(x => x.Id == agentId);
+
+        if (agent == null)
+        {
+            logger.LogWarning(
+                "Can not update agent status, because requested id can not be found. Requested id: {AgentId}", agentId);
+            return Task.CompletedTask;
+        }
+
+        agent.Availability = status;
+        return Task.CompletedTask;
+    }
 }
