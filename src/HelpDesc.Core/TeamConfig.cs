@@ -7,6 +7,8 @@ public record TeamsConfig
 {
     public int MaximumConcurrency { get; set; }
 
+    public int MaximumQueueCapacityMultiplier { get; set; }
+
     public List<SeniorityDescription> SeniorityDescriptions { get; set; }
 
     public List<Team> CoreTeams { get; set; }

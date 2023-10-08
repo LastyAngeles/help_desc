@@ -7,4 +7,5 @@ namespace HelpDesc.Api;
 public interface IAgentManagerGrain: IGrainWithIntegerKey
 {
     Task<Agent> AssignAgent(string sessionId);
+    Task<double> GetMaxQueueCapacity();
 }

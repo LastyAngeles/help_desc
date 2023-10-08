@@ -18,10 +18,13 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private readonly TeamsConfig teamsConfig;
 
     //priority => (agentId, availability)
-    public Dictionary<int, List<Agent>> AgentPool { get; set; }
+    private Dictionary<int, List<Agent>> AgentPool { get; set; }
 
     //priority => last allocated id (for round robin)
-    public Dictionary<int, string> PriorityRoundRobinMap { get; set; }
+    private Dictionary<int, string> PriorityRoundRobinMap { get; set; }
+
+    private double maxQueueCapacity;
+    private double maxQueueCapacityMultiplier;
 
     public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions,
         ILogger<AgentManagerGrain> logger)
@@ -33,7 +36,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var currentTime = DateTime.Now.TimeOfDay;
-
+        
         var currentTeam = AllocateCurrentTeam();
         if (currentTeam == null)
             return;
@@ -65,8 +68,12 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
                 var ret = AgentPool.GetOrAdd(seniorityDescription.Priority,
                     _ => new List<Agent>());
                 ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
+                maxQueueCapacity++;
             }
         }
+
+        maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
+        maxQueueCapacity *= maxQueueCapacityMultiplier;
 
         await base.OnActivateAsync(cancellationToken);
 
@@ -142,4 +149,6 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         //no available agents found
         return null;
     }
+
+    public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
 }
