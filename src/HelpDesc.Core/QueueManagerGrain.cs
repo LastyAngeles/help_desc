@@ -5,28 +5,57 @@ using Orleans;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace HelpDesc.Core;
 
 public class QueueManagerGrain : Grain, IQueueManagerGrain
 {
-    private readonly List<string> sessionIds = new();
+    private readonly ILogger<QueueManagerGrain> logger;
+    private List<string> sessionIds;
 
-    // TODO: inject IAgentManager (Maxim Meshkov 2023-10-07)
+    private double maxQueueCapacity;
 
-    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    public QueueManagerGrain(ILogger<QueueManagerGrain> logger)
     {
-        base.OnActivateAsync(cancellationToken);
+        this.logger = logger;
+    }
 
-        // TODO: load all session ids (Maxim Meshkov 2023-10-08)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        // TODO: load all persisted session ids (Maxim Meshkov 2023-10-08)
+        sessionIds = new List<string>();
 
-        // TODO: ask IAgentManager max capacity of queue (Maxim Meshkov 2023-10-08)
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
 
-        // TODO: ask IAgentManager to take some of the pending sessions until its full (Maxim Meshkov 2023-10-08)
+        maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 
-        // TODO: validate that the rest of the queue is <= maxCapacity (team before was 10 people fully loaded / now its only one)(Maxim Meshkov 2023-10-08)
-        // TODO: kick the ones who wait less! (Error case) (Maxim Meshkov 2023-10-08)
-        return Task.CompletedTask;
+        foreach (var sessionId in sessionIds)
+        {
+            var agent = agentManager.AssignAgent(sessionId);
+            if (agent == null)
+                break;
+            sessionIds.Remove(sessionId);
+        }
+
+        var overflowCapacityCount = maxQueueCapacity - sessionIds.Count;
+
+        if (overflowCapacityCount > 0)
+        {
+            // TODO: kick the ones, who wait less! (Maxim Meshkov 2023-10-08)
+            var idsToBeRemoved = new List<string>();
+            for (var i = 0; i < overflowCapacityCount; i++)
+            {
+                idsToBeRemoved.Add(sessionIds[^1]);
+                sessionIds.RemoveAt(sessionIds.Count - 1);
+            }
+
+            logger.LogWarning("Current team can not handle pending sessions." +
+                              "Queue will be reduced to the limit of {QueueCapacity}." +
+                              "Ids to be removed from queue: {RemovedIds}", maxQueueCapacity, idsToBeRemoved);
+        }
+
+        await base.OnActivateAsync(cancellationToken);
     }
 
     public async Task<SessionCreationResult> CreateSession()
