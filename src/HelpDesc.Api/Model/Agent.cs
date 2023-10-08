@@ -21,5 +21,6 @@ public enum Status
 public enum SessionStatus
 {
     Alive,
+    Disconnected,
     Dead
 }
