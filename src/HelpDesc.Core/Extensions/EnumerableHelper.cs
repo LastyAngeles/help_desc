@@ -1,10 +1,11 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 
 namespace HelpDesc.Core.Extensions;
 
-public static class EnumerableHelper
+public static class SolutionHelper
 {
     public static TValue GetOrAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, Func<TKey, TValue> factory)
     {
@@ -22,5 +23,12 @@ public static class EnumerableHelper
         value = factory(key);
         dictionary.Add(key, value);
         return value;
+    }
+
+    /// <param name="primaryKey">TeamName + seniority system name + idx</param>
+    /// <returns></returns>
+    public static string GetAgentSeniority(string primaryKey)
+    {
+        return primaryKey?.Split(StreamingConst.PrimaryKeySeparator).Skip(1).First();
     }
 }

@@ -14,6 +14,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     private readonly ILogger<QueueManagerGrain> logger;
     private List<string> sessionIds;
 
+    // TODO: field can be outdated! (Maxim Meshkov 2023-10-08)
     private double maxQueueCapacity;
 
     public QueueManagerGrain(ILogger<QueueManagerGrain> logger)
@@ -62,12 +63,21 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     {
         var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
         var sessionId = Guid.NewGuid().ToString();
+
+        // TODO: resolve sessionGrain && start monitor in case there is already sessions in queue (Maxim Meshkov 2023-10-08)
+        
+        if (sessionIds.Count + 1 > maxQueueCapacity)
+        {
+            logger.LogWarning("Queue is overloaded, new session can not be allocated. Session creation request will be skipped.");
+        }
+
+        sessionIds.Add(sessionId);
+
         var agent = await agentManager.AssignAgent(sessionId);
 
         if (agent == null)
         {
-            // TODO: enqueue on w8 list (Maxim Meshkov 2023-10-08)
-            // TODO: validate if there any space in queue (Maxim Meshkov 2023-10-08)
+            // TODO: do the same as on line :67 (Maxim Meshkov 2023-10-08)
         }
 
         return new SessionCreationResult(sessionId, true);
