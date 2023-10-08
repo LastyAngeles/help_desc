@@ -5,6 +5,11 @@ namespace HelpDesc.Core;
 
 public record TeamsConfig
 {
+    // TODO: split into different config! (Maxim Meshkov 2023-10-09)
+    public TimeSpan SessionPollInterval { get; set; }
+
+    public int MaxMissingPolls { get; set; }
+
     public int MaximumConcurrency { get; set; }
 
     public double MaximumQueueCapacityMultiplier { get; set; }
