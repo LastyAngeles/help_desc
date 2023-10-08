@@ -12,7 +12,7 @@ using Orleans;
 using Orleans.Runtime;
 using Orleans.Streams;
 
-namespace HelpDesc.Core;
+namespace HelpDesc.Core.Service;
 
 public class AgentGrain : Grain, IAgentGrain
 {

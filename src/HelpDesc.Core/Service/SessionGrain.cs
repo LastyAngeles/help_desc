@@ -2,7 +2,7 @@
 using HelpDesc.Api.Model;
 using Orleans;
 
-namespace HelpDesc.Core;
+namespace HelpDesc.Core.Service;
 
 public class SessionGrain : Grain, ISessionGrain
 {

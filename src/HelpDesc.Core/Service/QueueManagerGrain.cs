@@ -12,7 +12,7 @@ using System.Linq;
 using HelpDesc.Core.Extensions;
 using Orleans.Streams;
 
-namespace HelpDesc.Core;
+namespace HelpDesc.Core.Service;
 
 public class QueueManagerGrain : Grain, IQueueManagerGrain
 {
@@ -81,7 +81,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
         if (sessionsInQueue.State.Any())
         {
-            sessionsInQueue.State = sessionsInQueue.State.Insert(0, sessionId);
+            sessionsInQueue.State = sessionsInQueue.State.Add(sessionId);
             await sessionsInQueue.WriteStateAsync();
             return new SessionCreationResult(sessionId, true);
         }
@@ -109,6 +109,30 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         }
 
         return new SessionCreationResult(sessionId, true);
+    }
+
+    public async Task AllocatePendingSession()
+    {
+        if (!sessionsInQueue.State.Any())
+            //nothing to allocate
+            return;
+
+        var sessionId = sessionsInQueue.State.First();
+
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        var agent = await agentManager.AssignAgent(sessionId);
+
+        if (agent == null)
+        {
+            logger.LogWarning("Fail to allocate pending session with id {SessionId}. Operation aborted, session is back to the queue.", sessionId);
+            return;
+        }
+
+        if (PendingSubscriptions.TryGetValue(sessionId, out var sessionSub))
+            await sessionSub.UnsubscribeAsync();
+
+        sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
+        await sessionsInQueue.WriteStateAsync();
     }
 
     private async Task HandleSessionEvents(string sessionId, object @event)

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
 
-namespace HelpDesc.Core;
+namespace HelpDesc.Core.Service;
 
 public class AgentManagerGrain : Grain, IAgentManagerGrain
 {
@@ -144,7 +144,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
     public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
 
-    public Task ChangeAgentStatus(string agentId, Status status)
+    public async Task ChangeAgentStatus(string agentId, Status status)
     {
         var agent = AgentPool.FirstOrDefault(x => x.Value.Any(y => y.Id == agentId))
             .Value
@@ -153,11 +153,17 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         if (agent == null)
         {
             logger.LogWarning(
-                "Can not update agent status, because requested id can not be found. Requested id: {AgentId}", agentId);
-            return Task.CompletedTask;
+                "Can not update agent status, because requested id can not be found. Requested agent id: {AgentId}", agentId);
+            return;
         }
 
         agent.Availability = status;
-        return Task.CompletedTask;
+
+        if (agent.Availability == Status.Free)
+        {
+            // TODO: leading to a cross call! replace that with more reliable concept! (Maxim Meshkov 2023-10-08)
+            var queueManager = GrainFactory.GetGrain<IQueueManagerGrain>(0);
+            await queueManager.AllocatePendingSession();
+        }
     }
 }
