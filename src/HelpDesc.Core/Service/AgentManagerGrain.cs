@@ -18,11 +18,15 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private readonly TeamsConfig teamsConfig;
 
     //priority => agent
-    private Dictionary<int, List<Agent>> AgentPool { get; } = new();
-    private Dictionary<int, List<Agent>> OverflowTeam { get; } = new();
+    private Dictionary<int, List<Agent>> CoreAgentPool { get; } = new();
+    private Dictionary<int, List<Agent>> OverflowAgentPool { get; } = new();
+
+    //all agents together
+    private List<Agent> AgentsPool { get; set; }
 
     //priority => last allocated id (for round robin)
-    private Dictionary<int, string> PriorityRoundRobinMap { get; } = new();
+    private Dictionary<int, string> CorePriorityRoundRobinMap { get; } = new();
+    private Dictionary<int, string> OverflowPriorityRoundRobinMap { get; } = new();
 
     private double maxQueueCapacity;
     private double maxQueueCapacityMultiplier;
@@ -46,14 +50,18 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         var currentTeamStuff = currentTeam.Stuff;
 
         //core team
-        await PopulateTeam(currentTeamStuff, AgentPool);
+        await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
 
         maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
-        maxQueueCapacity = AgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
+        maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
 
         //overflow team
-        var overflowTeamStuff = teamsConfig.OverflowTeam.Stuff;
-        await PopulateTeam(overflowTeamStuff, OverflowTeam);
+        var overflowTeam = teamsConfig.OverflowTeam;
+        await PopulateTeam(overflowTeam.Stuff, OverflowAgentPool, overflowTeam.Name);
+
+        var agentsPool = OverflowAgentPool.Values.SelectMany(x => x).Concat(CoreAgentPool.Values.SelectMany(x => x))
+            .ToList();
+        AgentsPool = agentsPool;
 
         Team AllocateCurrentTeam()
         {
@@ -92,7 +100,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
             return chosenTeam;
         }
 
-        async Task PopulateTeam(Dictionary<string, int> requestedStuff, Dictionary<int, List<Agent>> agentPool)
+        async Task PopulateTeam(Dictionary<string, int> requestedStuff, Dictionary<int, List<Agent>> agentPool, string teamName)
         {
             for (var i = 0; i < requestedStuff.Count; i++)
             {
@@ -111,7 +119,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
                 for (var j = 0; j < membersCount; j++)
                 {
-                    var agentId = $"{currentTeam.Name}.{senioritySystemName}.{j}";
+                    var agentId = $"{teamName}.{senioritySystemName}.{j}";
                     var agentGrain = GrainFactory.GetGrain<AgentGrain>(agentId);
                     var agentStatus = await agentGrain.GetStatus();
 
@@ -125,45 +133,53 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
     public async Task<Agent> AssignAgent(string sessionId)
     {
-        foreach (var priority in AgentPool.Keys)
+        var agent = await AssignFromPool(CoreAgentPool, CorePriorityRoundRobinMap) ??
+                    await AssignFromPool(OverflowAgentPool, OverflowPriorityRoundRobinMap);
+
+        return agent;
+
+        async Task<Agent> AssignFromPool(Dictionary<int, List<Agent>> pool, Dictionary<int, string> roundRobinMap)
         {
-            var availableAgents = AgentPool[priority].Where(x => x.Availability == Status.Free).ToList();
+            foreach (var priority in pool.Keys)
+            {
+                var availableAgents = pool[priority].Where(x => x.Availability == Status.Free).ToList();
 
-            if (!availableAgents.Any())
-                continue;
+                if (!availableAgents.Any())
+                    continue;
 
-            PriorityRoundRobinMap.TryGetValue(priority, out var lastAllocatedAgentId);
+                roundRobinMap.TryGetValue(priority, out var lastAllocatedAgentId);
 
-            var assignedAgent = availableAgents.Count == 1
-                ? availableAgents.Single()
-                : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
+                var assignedAgent = availableAgents.Count == 1
+                    ? availableAgents.Single()
+                    : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
 
-            // TODO: handle overload case (impossible state, but it needs to be respected) (Maxim Meshkov 2023-10-08)
-            var updatedAgentStatus = await GrainFactory.GetGrain<AgentGrain>(assignedAgent.Id).AssignSession(sessionId);
+                // TODO: handle overload case (impossible state, but it needs to be respected) (Maxim Meshkov 2023-10-08)
+                var updatedAgentStatus =
+                    await GrainFactory.GetGrain<AgentGrain>(assignedAgent.Id).AssignSession(sessionId);
 
-            assignedAgent.Availability = updatedAgentStatus;
+                assignedAgent.Availability = updatedAgentStatus;
 
-            PriorityRoundRobinMap[priority] = assignedAgent.Id;
+                roundRobinMap[priority] = assignedAgent.Id;
 
-            return assignedAgent;
+                return assignedAgent;
+            }
+
+            //no available agents found
+            return null;
         }
-
-        //no available agents found
-        return null;
     }
 
     public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
 
     public async Task ChangeAgentStatus(string agentId, Status status)
     {
-        var agent = AgentPool.FirstOrDefault(x => x.Value.Any(y => y.Id == agentId))
-            .Value
-            .FirstOrDefault(x => x.Id == agentId);
+        var agent = AgentsPool.FirstOrDefault(x => x.Id == agentId);
 
         if (agent == null)
         {
             logger.LogWarning(
-                "Can not update agent status, because requested id can not be found. Requested agent id: {AgentId}", agentId);
+                "Can not update agent status, because requested id can not be found. Requested agent id: {AgentId}",
+                agentId);
             return;
         }
 
