@@ -6,5 +6,5 @@ namespace HelpDesc.Api;
 
 public interface IQueueManagerGrain : IGrainWithIntegerKey
 {
-    Task<SessionCreateResult> CreateSession();
+    Task<SessionCreationResult> CreateSession();
 }

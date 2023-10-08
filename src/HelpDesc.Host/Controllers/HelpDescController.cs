@@ -21,7 +21,7 @@ public class HelpDescController : ControllerBase
     }
 
     [HttpPost("session")]
-    public async Task<SessionCreateResult> OpenSession([FromQuery] string sessionId = default)
+    public async Task<SessionCreationResult> OpenSession([FromQuery] string sessionId = default)
     {
         var grain = orleansClient.GetGrain<IQueueManagerGrain>(0);
         return await grain.CreateSession();

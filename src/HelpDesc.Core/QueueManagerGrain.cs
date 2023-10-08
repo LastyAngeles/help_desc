@@ -1,4 +1,5 @@
-﻿using HelpDesc.Api.Model;
+﻿using System;
+using HelpDesc.Api.Model;
 using HelpDesc.Api;
 using Orleans;
 using System.Collections.Generic;
@@ -28,9 +29,18 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         return Task.CompletedTask;
     }
 
-    public Task<SessionCreateResult> CreateSession()
+    public async Task<SessionCreationResult> CreateSession()
     {
-        // TODO: create window (Maxim Meshkov 2023-10-07)
-        return Task.FromResult(new SessionCreateResult("mainId", true));
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        var sessionId = Guid.NewGuid().ToString();
+        var agent = await agentManager.AssignAgent(sessionId);
+
+        if (agent == null)
+        {
+            // TODO: enqueue on w8 list (Maxim Meshkov 2023-10-08)
+            // TODO: validate if there any space in queue (Maxim Meshkov 2023-10-08)
+        }
+
+        return new SessionCreationResult(sessionId, true);
     }
 }

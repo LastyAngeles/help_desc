@@ -6,6 +6,6 @@ namespace HelpDesc.Api;
 
 public interface IAgentGrain : IGrainWithStringKey
 {
-    Task<bool> AssignSession(string sessionId);
+    Task<Status> AssignSession(string sessionId);
     Task<Status> GetStatus();
 }

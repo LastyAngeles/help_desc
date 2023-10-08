@@ -7,7 +7,7 @@ namespace HelpDesc.Core;
 
 public class AgentGrain : Grain, IAgentGrain
 {
-    public Task<bool> AssignSession(string sessionId)
+    public Task<Status> AssignSession(string sessionId)
     {
         throw new System.NotImplementedException();
     }

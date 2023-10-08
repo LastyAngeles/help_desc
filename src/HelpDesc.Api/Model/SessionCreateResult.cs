@@ -3,7 +3,7 @@
 namespace HelpDesc.Api.Model;
 
 [GenerateSerializer]
-public record SessionCreateResult(string Id, bool Success)
+public record SessionCreationResult(string Id, bool Success)
 {
     [Id(0)] public string Id { get; set; } = Id;
 

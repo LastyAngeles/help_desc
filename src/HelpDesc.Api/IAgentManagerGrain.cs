@@ -4,7 +4,7 @@ using Orleans;
 
 namespace HelpDesc.Api;
 
-public interface IAgentManagerGrain: IGrainWithStringKey
+public interface IAgentManagerGrain: IGrainWithIntegerKey
 {
     Task<Agent> AssignAgent(string sessionId);
 }
