@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using HelpDesc.Api;
 using HelpDesc.Api.Model;
+using HelpDesc.Core.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
@@ -15,35 +17,104 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private readonly ILogger<AgentManagerGrain> logger;
     private readonly TeamsConfig teamsConfig;
 
-    //priority => (agentIdx, availability)
-    public Dictionary<int, List<(string, Status)>> AgentPool { get; set; }
+    //priority => (agentId, availability)
+    public Dictionary<int, List<(string agentIdx, Status status)>> AgentPool { get; set; }
 
-    //priority => last allocated idx (for round robin)
+    //priority => last allocated id (for round robin)
     public Dictionary<int, string> PriorityRoundRobinMap { get; set; }
 
-    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, ILogger<AgentManagerGrain> logger)
+    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions,
+        ILogger<AgentManagerGrain> logger)
     {
         this.logger = logger;
         teamsConfig = teamConfigOptions?.Value;
     }
 
-    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
-        base.OnActivateAsync(cancellationToken);
+        var currentTime = DateTime.Now.TimeOfDay;
 
-        if (teamsConfig == null)
+        var currentTeam = AllocateCurrentTeam();
+        if (currentTeam == null)
+            return;
+
+        var seniorityDescriptions = teamsConfig.SeniorityDescriptions;
+        var stuff = currentTeam.Stuff;
+
+        for (var i = 0; i < stuff.Count; i++)
         {
-            logger.LogError("Error in a process of agent manager initialization - team raster is empty. Grain id: {Id}", this.GetPrimaryKeyString());
-            return Task.CompletedTask;
+            var (senioritySystemName, membersCount) = stuff.ElementAt(i);
+
+            var seniorityDescription = seniorityDescriptions.FirstOrDefault(x => x.Name == senioritySystemName);
+            if (seniorityDescription == null)
+            {
+                logger.LogError(
+                    "Team config was wrongly populated, since it has no matching seniority description for given system name: {SystemName}." +
+                    "Priority can not be set correctly." +
+                    "Agents for this entry would not be created.",
+                    senioritySystemName);
+                continue;
+            }
+
+            for (var j = 0; j < membersCount; j++)
+            {
+                var agentId = $"{currentTeam.Name}.{senioritySystemName}.{j}";
+                var agentGrain = GrainFactory.GetGrain<AgentGrain>(agentId);
+                var agentStatus = await agentGrain.GetStatus();
+
+                var ret = AgentPool.GetOrAdd(seniorityDescription.Priority,
+                    _ => new List<(string agentIdx, Status status)>());
+                ret.Add((agentId, agentStatus));
+            }
         }
 
-        // TODO: load from options (Maxim Meshkov 2023-10-07)
+        await base.OnActivateAsync(cancellationToken);
 
-        // TODO: generate ids => (teamName + senr + idx{i})(Maxim Meshkov 2023-10-08)
+        Team AllocateCurrentTeam()
+        {
+            if (teamsConfig == null)
+            {
+                logger.LogError(
+                    "Error in a process of agent manager initialization - team raster is empty. Grain id: {Id}",
+                    this.GetPrimaryKeyString());
+                return null;
+            }
 
-        // TODO: resolve agent grain => will load its state (OR just response) and give necessary info (such as current availability) (Maxim Meshkov 2023-10-08)
+            var availableTeamsBasedOnShift = teamsConfig.CoreTeams
+                .Where(x => IsTimeInRange(currentTime, x.StartWork, x.EndWork)).ToList();
+            var chosenTeam = availableTeamsBasedOnShift.FirstOrDefault();
 
-        return Task.CompletedTask;
+            if (chosenTeam == null)
+            {
+                var overallTimeFrames = teamsConfig.CoreTeams.Select(x => (x.Name, x.StartWork, x.EndWork));
+                logger.LogError(
+                    "Error in a process of agent manager initialization - there is not matching team based on current time frame." +
+                    "Current time: {CurrentTime}; Overall time frames: {OverallTimeFrames}", currentTime,
+                    overallTimeFrames);
+                return null;
+            }
+
+            if (availableTeamsBasedOnShift.Count > 1)
+            {
+                var overlappedTeams = availableTeamsBasedOnShift.Where(x => x.Name != chosenTeam.Name);
+                logger.LogWarning(
+                    "Overlapping team hours detected. Current team would be chosen randomly. Chosen team: {ChosenTeam}; Overlapped teams: {OverlappedTeams}",
+                    chosenTeam, overlappedTeams);
+            }
+
+            return chosenTeam;
+        }
+    }
+
+    private bool IsTimeInRange(TimeSpan time, TimeSpan start, TimeSpan end)
+    {
+        if (start <= end)
+        {
+            return time >= start && time <= end;
+        }
+
+        // Handle the case where the range spans midnight
+        return time >= start || time <= end;
     }
 
     public Task<Agent> AssignAgent(string sessionId)

@@ -14,6 +14,7 @@ public record TeamsConfig
     public Team OverflowTeam { get; set; }
 }
 
-public record SeniorityDescription(string Name, int Priority, double Capacity);
+public record SeniorityDescription(string Name, string Description, int Priority, double Capacity);
 
+/// <param name="Stuff">Seniority system name to the number of members.</param>
 public record Team(string Name, Dictionary<string, int> Stuff, TimeSpan StartWork, TimeSpan EndWork);
