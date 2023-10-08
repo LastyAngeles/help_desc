@@ -62,7 +62,7 @@ public class AgentGrain : Grain, IAgentGrain
         }
 
         //update current state
-        if(updateIsRequired)
+        if (updateIsRequired)
             await processingSessions.WriteStateAsync();
 
         void SetMaxCapacity()
@@ -95,7 +95,7 @@ public class AgentGrain : Grain, IAgentGrain
         var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });
 
         RunningSubscriptions.Add(sessionId, subs);
-        
+
         processingSessions.State = processingSessions.State.Add(sessionId);
         await processingSessions.WriteStateAsync();
 
@@ -115,8 +115,6 @@ public class AgentGrain : Grain, IAgentGrain
 
     private async Task RemoveSession(string sessionId)
     {
-
-
         if (RunningSubscriptions.TryGetValue(sessionId, out var subToDispose))
         {
             processingSessions.State = processingSessions.State.Remove(sessionId);
