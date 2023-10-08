@@ -23,14 +23,29 @@ public class HelpDescController : ControllerBase
     [HttpPost("session")]
     public async Task<SessionCreationResult> OpenSession([FromQuery] string sessionId = default)
     {
+        if (sessionId != null)
+        {
+            var sessionGrain = orleansClient.GetGrain<ISessionGrain>(sessionId);
+
+            if (await sessionGrain.GetStatus() == SessionStatus.Dead)
+            {
+                var exception = $"Attempt to create session which was already dead. Dead session id: {sessionId}";
+                logger.LogError(exception);
+                return new SessionCreationResult(sessionId, false) { ExceptionMessage = exception };
+            }
+
+            await sessionGrain.ChangeStatus(SessionStatus.Alive);
+            return new SessionCreationResult(sessionId, true);
+        }
+
         var grain = orleansClient.GetGrain<IQueueManagerGrain>(0);
         return await grain.CreateSession();
     }
 
     [HttpDelete("session")]
-    public Task CloseSession([FromQuery] string sessionId)
+    public async Task CloseSession([FromQuery] string sessionId)
     {
-        // TODO: implement (Maxim Meshkov 2023-10-07)
-        return Task.CompletedTask;
+        var sessionGrain = orleansClient.GetGrain<ISessionGrain>(sessionId);
+        await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
     }
 }
