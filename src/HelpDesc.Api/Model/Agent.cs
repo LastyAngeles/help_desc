@@ -14,5 +14,12 @@ public record Agent(string Id, string Seniority, int Priority, Status Availabili
 public enum Status
 {
     Busy,
-    Free
+    Free,
+    Overloaded
+}
+
+public enum SessionStatus
+{
+    Alive,
+    Dead
 }
