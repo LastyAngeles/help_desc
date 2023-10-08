@@ -19,6 +19,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
     //priority => agent
     private Dictionary<int, List<Agent>> AgentPool { get; } = new();
+    private Dictionary<int, List<Agent>> OverflowTeam { get; } = new();
 
     //priority => last allocated id (for round robin)
     private Dictionary<int, string> PriorityRoundRobinMap { get; } = new();
@@ -35,50 +36,29 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
-        var currentTime = DateTime.Now.TimeOfDay;
+        await base.OnActivateAsync(cancellationToken);
 
         var currentTeam = AllocateCurrentTeam();
         if (currentTeam == null)
             return;
 
         var seniorityDescriptions = teamsConfig.SeniorityDescriptions;
-        var stuff = currentTeam.Stuff;
+        var currentTeamStuff = currentTeam.Stuff;
 
-        for (var i = 0; i < stuff.Count; i++)
-        {
-            var (senioritySystemName, membersCount) = stuff.ElementAt(i);
-
-            var seniorityDescription = seniorityDescriptions.FirstOrDefault(x => x.Name == senioritySystemName);
-            if (seniorityDescription == null)
-            {
-                logger.LogError(
-                    "Team config was wrongly populated, since it has no matching seniority description for given system name: {SystemName}." +
-                    "Priority can not be set correctly." +
-                    "Agents for this entry would not be created.",
-                    senioritySystemName);
-                continue;
-            }
-
-            for (var j = 0; j < membersCount; j++)
-            {
-                var agentId = $"{currentTeam.Name}.{senioritySystemName}.{j}";
-                var agentGrain = GrainFactory.GetGrain<AgentGrain>(agentId);
-                var agentStatus = await agentGrain.GetStatus();
-
-                var ret = AgentPool.GetOrAdd(seniorityDescription.Priority,
-                    _ => new List<Agent>());
-                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
-                maxQueueCapacity++;
-            }
-        }
+        //core team
+        await PopulateTeam(currentTeamStuff, AgentPool);
 
         maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
-        maxQueueCapacity *= maxQueueCapacityMultiplier;
+        maxQueueCapacity = AgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
 
-        await base.OnActivateAsync(cancellationToken);
+        //overflow team
+        var overflowTeamStuff = teamsConfig.OverflowTeam.Stuff;
+        await PopulateTeam(overflowTeamStuff, OverflowTeam);
 
         Team AllocateCurrentTeam()
         {
+            var currentTime = DateTime.Now.TimeOfDay;
+
             if (teamsConfig == null)
             {
                 logger.LogError(
@@ -110,6 +90,36 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
             }
 
             return chosenTeam;
+        }
+
+        async Task PopulateTeam(Dictionary<string, int> requestedStuff, Dictionary<int, List<Agent>> agentPool)
+        {
+            for (var i = 0; i < requestedStuff.Count; i++)
+            {
+                var (senioritySystemName, membersCount) = requestedStuff.ElementAt(i);
+
+                var seniorityDescription = seniorityDescriptions.FirstOrDefault(x => x.Name == senioritySystemName);
+                if (seniorityDescription == null)
+                {
+                    logger.LogError(
+                        "Team config was wrongly populated, since it has no matching seniority description for given system name: {SystemName}." +
+                        "Priority can not be set correctly." +
+                        "Agents for this entry would not be created.",
+                        senioritySystemName);
+                    continue;
+                }
+
+                for (var j = 0; j < membersCount; j++)
+                {
+                    var agentId = $"{currentTeam.Name}.{senioritySystemName}.{j}";
+                    var agentGrain = GrainFactory.GetGrain<AgentGrain>(agentId);
+                    var agentStatus = await agentGrain.GetStatus();
+
+                    var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
+                        _ => new List<Agent>());
+                    ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
+                }
+            }
         }
     }
 
