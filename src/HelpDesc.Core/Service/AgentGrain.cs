@@ -166,6 +166,8 @@ public class AgentGrain : Grain, IAgentGrain
         await agentInfo.WriteStateAsync();
     }
 
+    public Task<ImmutableList<string>> GetCurrentSessionIds() => Task.FromResult(agentInfo.State.SessionIds);
+
     public override Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         var id = this.GetPrimaryKeyString();
