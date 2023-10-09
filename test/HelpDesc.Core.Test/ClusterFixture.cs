@@ -4,7 +4,7 @@ using Orleans.Hosting;
 using HelpDesc.Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using HelpDesc.Core.Service;
-using System.Collections.Generic;
+using static HelpDesc.Core.Test.Data.TestingMockData;
 
 namespace HelpDesc.Core.Test;
 
@@ -43,11 +43,13 @@ public class TestSiloConfigurations : ISiloConfigurator
         {
             services.AddSingleton<TestTimeProvider>();
             services.AddSingleton<ITimeProvider, TestTimeProvider>(sp => sp.GetRequiredService<TestTimeProvider>());
-            services.Configure<TeamsConfig>(t => {
-                // todo complete here
-                t.CoreTeams = new List<Team>{};
-                t.MaxMissingPolls = 3;
-                t.SessionPollInterval = TimeSpan.FromSeconds(1);
+            services.Configure<TeamsConfig>(teamsConfig => {
+                teamsConfig.CoreTeams = CoreTeams;
+                teamsConfig.OverflowTeam = OverflowTeam;
+                teamsConfig.MaximumQueueCapacityMultiplier = MaxQueueCapacityMultiplier;
+                teamsConfig.SeniorityDescriptions = SeniorityDescriptions;
+                teamsConfig.MaxMissingPolls = MaxMissingPolls;
+                teamsConfig.SessionPollInterval = PollInterval;
             });
         });
     }
