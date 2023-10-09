@@ -21,9 +21,6 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
     public Dictionary<string, StreamSubscriptionHandle<object>> PendingSubscriptions { get; set; } = new();
 
-    // TODO: field can be outdated! (Maxim Meshkov 2023-10-08)
-    private double maxQueueCapacity;
-
     public QueueManagerGrain(ILogger<QueueManagerGrain> logger,
         [PersistentState("sessionsInQueue", "helpDescStore")]
         IPersistentState<ImmutableList<string>> sessionsInQueue)
@@ -38,13 +35,14 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
         var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
 
-        maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
+        var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 
         foreach (var sessionId in sessionsInQueue.State)
         {
             var agent = agentManager.AssignAgent(sessionId);
             if (agent == null)
                 break;
+
             sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
         }
 
@@ -64,75 +62,106 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
                               "Queue will be reduced to the limit of {QueueCapacity}." +
                               "Ids to be removed from queue: {RemovedIds}", maxQueueCapacity, idsToBeRemoved);
         }
+
+        foreach (var sessionId in sessionsInQueue.State)
+        {
+            if (!await SubscribeToSession(sessionId))
+                sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
+        }
+
+        await sessionsInQueue.WriteStateAsync();
     }
 
     public async Task<SessionCreationResult> CreateSession()
     {
         var sessionId = Guid.NewGuid().ToString();
 
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        // TODO: cache this value properly (Maxim Meshkov 2023-10-09)
+        var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
+
         if (sessionsInQueue.State.Count + 1 > maxQueueCapacity)
         {
-            const string exception = "Queue is overloaded, new session can not be allocated. Session creation request will be skipped.";
+            const string exception =
+                "Queue is overloaded, new session can not be allocated. Session creation request will be skipped.";
             logger.LogError(exception);
             return new SessionCreationResult(sessionId, false) { ExceptionMessage = exception };
         }
 
-        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
-
         if (sessionsInQueue.State.Any())
-        {
-            sessionsInQueue.State = sessionsInQueue.State.Add(sessionId);
-            await sessionsInQueue.WriteStateAsync();
-            return new SessionCreationResult(sessionId, true);
-        }
+            return await AddToQueue();
 
         var agent = agentManager.AssignAgent(sessionId);
 
         if (agent == null)
-        {
-            //get the grain in order to start timer
-            GrainFactory.GetGrain<ISessionGrain>(sessionId);
-            // TODO: ping grain? (Maxim Meshkov 2023-10-08)
-
-            var sp = this.GetStreamProvider(StreamingConst.SessionStreamName);
-            var streamId = StreamId.Create(StreamingConst.SessionStreamNamespace, sessionId);
-            var stream = sp.GetStream<object>(streamId);
-
-            var subs = await stream.SubscribeAsync(async (@event, _) =>
-            {
-                await HandleSessionEvents(sessionId, @event);
-            });
-
-            sessionsInQueue.State = sessionsInQueue.State.Add(sessionId);
-            PendingSubscriptions[sessionId] = subs;
-            await sessionsInQueue.WriteStateAsync();
-        }
+            return await AddToQueue();
 
         return new SessionCreationResult(sessionId, true);
+
+        async Task<SessionCreationResult> AddToQueue()
+        {
+            if (await SubscribeToSession(sessionId))
+            {
+                sessionsInQueue.State = sessionsInQueue.State.Add(sessionId);
+                await sessionsInQueue.WriteStateAsync();
+                return new SessionCreationResult(sessionId, true);
+            }
+
+            return new SessionCreationResult(sessionId, false);
+        }
     }
 
-    public async Task AllocatePendingSession()
+    private async Task<bool> SubscribeToSession(string sessionId)
+    {
+        var sessionGrain = GrainFactory.GetGrain<ISessionGrain>(sessionId);
+        var status = await sessionGrain.GetStatus();
+        if (status == SessionStatus.Dead)
+            return false;
+
+        var sp = this.GetStreamProvider(StreamingConst.SessionStreamName);
+        var streamId = StreamId.Create(StreamingConst.SessionStreamNamespace, sessionId);
+        var stream = sp.GetStream<object>(streamId);
+
+        var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });
+
+        PendingSubscriptions[sessionId] = subs;
+        return true;
+    }
+
+    public async Task<string> AllocateSinglePendingSession() => await AllocatePendingSessionInner();
+
+    public async Task<List<string>> AllocatePendingSessions()
+    {
+        var ret = new List<string>();
+
+        foreach (var _ in sessionsInQueue.State)
+        {
+            var pendingSessionId = await AllocatePendingSessionInner(false);
+            ret.Add(pendingSessionId);
+        }
+
+        await sessionsInQueue.WriteStateAsync();
+
+        return ret;
+    }
+
+    public async Task<string> AllocatePendingSessionInner(bool writeState = true)
     {
         if (!sessionsInQueue.State.Any())
             //nothing to allocate
-            return;
+            return null;
 
         var sessionId = sessionsInQueue.State.First();
-
-        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
-        var agent = await agentManager.AssignAgent(sessionId);
-
-        if (agent == null)
-        {
-            logger.LogWarning("Fail to allocate pending session with id {SessionId}. Operation aborted, session is back to the queue.", sessionId);
-            return;
-        }
 
         if (PendingSubscriptions.TryGetValue(sessionId, out var sessionSub))
             await sessionSub.UnsubscribeAsync();
 
+        if (writeState)
+            await sessionsInQueue.WriteStateAsync();
+
         sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
-        await sessionsInQueue.WriteStateAsync();
+
+        return sessionId;
     }
 
     private async Task HandleSessionEvents(string sessionId, object @event)
