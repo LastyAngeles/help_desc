@@ -16,6 +16,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HelpDesc.Core", "src\HelpDesc.Core\HelpDesc.Core.csproj", "{21258316-D619-4355-B9CF-83A4D4EF70BD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{E0FF76C1-D433-4BFB-9F78-86DE300E55E4}"
+	ProjectSection(SolutionItems) = preProject
+		test\Directory.Build.props = test\Directory.Build.props
+		test\Directory.Packages.props = test\Directory.Packages.props
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HelpDesc.Core.Test", "test\HelpDesc.Core.Test\HelpDesc.Core.Test.csproj", "{224CFACA-6F64-4935-BA05-22E3B81DA33E}"
 EndProject
