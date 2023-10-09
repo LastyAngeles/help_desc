@@ -55,4 +55,37 @@ public class AgentTest
         agentStatus = await agent.GetStatus();
         agentStatus.Should().Be(AgentStatus.Free);
     }
+
+    [Fact]
+    public async Task AgentOverloadCapacityTest()
+    {
+        var capacity = MiddleCapacity;
+        var agentId = SolutionHelper.AgentIdFormatter("Team A", MiddleSystemName, 0);
+
+        var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
+
+        var agentStatus = await agent.GetStatus();
+        agentStatus.Should().Be(AgentStatus.Free);
+        capacity.Should().BeGreaterThan(0);
+
+        //attempt to allocate session above capacity
+        for (var i = 0; i < capacity + 1; i++)
+            agentStatus = await agent.AssignSession($"session.{i}");
+
+        agentStatus.Should().Be(AgentStatus.Overloaded);
+
+        agentStatus = await agent.GetStatus();
+        //overload is not a proper status, so it should not hide proper one
+        agentStatus.Should().Be(AgentStatus.Busy);
+
+        //create session which should not be allocated
+        var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{capacity}");
+        await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
+
+        await Task.Delay(SecondsBeforeSessionIsDead);
+
+        agentStatus = await agent.GetStatus();
+        //closing not allocated session should not take effect
+        agentStatus.Should().Be(AgentStatus.Busy);
+    }
 }
