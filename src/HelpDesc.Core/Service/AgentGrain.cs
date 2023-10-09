@@ -23,7 +23,7 @@ public class AgentGrain : Grain, IAgentGrain
     //sessionId => subscription
     public Dictionary<string, StreamSubscriptionHandle<object>> RunningSubscriptions { get; set; } = new();
 
-    private Status currentStatus;
+    private AgentStatus currentStatus;
 
     public AgentGrain(IOptions<TeamsConfig> teamConfig,
         [PersistentState("agentsInfo", SolutionConst.HelpDescStore)]
@@ -45,8 +45,9 @@ public class AgentGrain : Grain, IAgentGrain
 
         var sessionIds = agentInfo.State.SessionIds;
 
-        currentStatus = Status.Free;
-        var updateIsRequired = false;
+        //if agent was busy before deactivation, it would not after
+        //later tasks would be re-assigned back to the agent
+        currentStatus = agentInfo.State.Status == AgentStatus.Closing ? agentInfo.State.Status : AgentStatus.Free;
 
         foreach (var sessionId in sessionIds)
         {
@@ -54,20 +55,19 @@ public class AgentGrain : Grain, IAgentGrain
             var sessionStatus = await sessionGrain.GetStatus();
             if (sessionStatus == SessionStatus.Dead)
             {
-                updateIsRequired = true;
                 agentInfo.State.SessionIds = sessionIds.Remove(sessionId);
                 continue;
             }
 
-            currentStatus = await AssignSession(sessionId, false);
+            //event if agent is closing, it is still required to re-assign existed task in order to finish them
+            currentStatus = await AssignSession(sessionId, false, false);
 
-            if (currentStatus is Status.Busy or Status.Closing)
+            if (currentStatus is AgentStatus.Busy)
                 break;
         }
 
-        //update current state
-        if (updateIsRequired)
-            await agentInfo.WriteStateAsync();
+        agentInfo.State.Status = currentStatus;
+        await agentInfo.WriteStateAsync();
     }
 
     private int GetMaxCapacity()
@@ -80,23 +80,23 @@ public class AgentGrain : Grain, IAgentGrain
         return (int)Math.Floor(seniorityDescription!.Capacity * maximumConcurrency);
     }
 
-    public Task<Status> AssignSession(string sessionId)
+    public Task<AgentStatus> AssignSession(string sessionId)
     {
         return AssignSession(sessionId, true);
     }
 
-    private async Task<Status> AssignSession(string sessionId, bool shouldSaveState)
+    private async Task<AgentStatus> AssignSession(string sessionId, bool shouldSaveState, bool respectClosing = true)
     {
         var sessionGrain = GrainFactory.GetGrain<ISessionGrain>(sessionId);
         var sessionStatus = await sessionGrain.GetStatus();
 
-        if (sessionStatus == SessionStatus.Dead || currentStatus is Status.Busy or Status.Closing)
+        if (sessionStatus == SessionStatus.Dead || currentStatus is AgentStatus.Busy && (respectClosing && currentStatus == AgentStatus.Closing))
             return currentStatus;
 
         //do not take additional sessions in case it is outside the capability limit
         //pathological case, because AgentManager should take care about this scenario
         if (RunningSubscriptions.Count >= agentInfo.State.Capacity)
-            return Status.Overloaded;
+            return AgentStatus.Overloaded;
 
         var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
         var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
@@ -112,12 +112,20 @@ public class AgentGrain : Grain, IAgentGrain
             await agentInfo.WriteStateAsync();
         }
 
+        var oldStatus = currentStatus;
         currentStatus = CalculateCurrentStatus();
+
+        if (oldStatus != currentStatus)
+        {
+            await agentInfo.WriteStateAsync();
+            agentInfo.State.Status = currentStatus;
+        }
+
         return currentStatus;
     }
 
-    private Status CalculateCurrentStatus() =>
-        RunningSubscriptions.Count == agentInfo.State.Capacity ? Status.Busy : Status.Free;
+    private AgentStatus CalculateCurrentStatus() =>
+        RunningSubscriptions.Count == agentInfo.State.Capacity ? AgentStatus.Busy : AgentStatus.Free;
 
     private async Task HandleSessionEvents(string sessionId, object @event)
     {
@@ -138,19 +146,23 @@ public class AgentGrain : Grain, IAgentGrain
             var oldStatus = currentStatus;
             currentStatus = CalculateCurrentStatus();
 
-            if (oldStatus != Status.Closing && currentStatus != oldStatus)
+            if (oldStatus != AgentStatus.Closing && currentStatus != oldStatus)
             {
+                agentInfo.State.Status = currentStatus;
+                await agentInfo.WriteStateAsync();
+
                 var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
                 await agentManager.ChangeAgentStatus(this.GetPrimaryKeyString(), currentStatus);
             }
         }
     }
 
-    public Task<Status> GetStatus() => Task.FromResult(currentStatus);
+    public Task<AgentStatus> GetStatus() => Task.FromResult(currentStatus);
 
-    public Task CloseAgent()
+    public async Task CloseAgent()
     {
-        currentStatus = Status.Closing;
-        return Task.CompletedTask;
+        currentStatus = AgentStatus.Closing;
+        agentInfo.State.Status = currentStatus;
+        await agentInfo.WriteStateAsync();
     }
 }

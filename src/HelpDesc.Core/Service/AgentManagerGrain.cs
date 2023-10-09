@@ -149,7 +149,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         {
             foreach (var priority in pool.Keys)
             {
-                var availableAgents = pool[priority].Where(x => x.Availability == Status.Free).ToList();
+                var availableAgents = pool[priority].Where(x => x.Availability == AgentStatus.Free).ToList();
 
                 if (!availableAgents.Any())
                     continue;
@@ -177,7 +177,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
     public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
 
-    public async Task ChangeAgentStatus(string agentId, Status status)
+    public async Task ChangeAgentStatus(string agentId, AgentStatus status)
     {
         var agent = AgentsPool.FirstOrDefault(x => x.Id == agentId);
 
@@ -191,7 +191,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
         agent.Availability = status;
 
-        var allBusy = AgentsPool.All(x => x.Availability == Status.Busy);
+        var allBusy = AgentsPool.All(x => x.Availability == AgentStatus.Busy);
 
         if (!allBusy)
         {

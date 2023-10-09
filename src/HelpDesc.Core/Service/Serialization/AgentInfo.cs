@@ -1,5 +1,6 @@
 ﻿using Orleans;
 using System.Collections.Immutable;
+using HelpDesc.Api.Model;
 
 namespace HelpDesc.Core.Service.Serialization;
 
@@ -13,4 +14,5 @@ public record AgentInfo(ImmutableList<string> SessionIds, int Capacity)
 
     [Id(0)] public ImmutableList<string> SessionIds { get; set; } = SessionIds;
     [Id(1)] public int Capacity { get; set; } = Capacity;
+    [Id(2)] public AgentStatus Status { get; set; }
 }

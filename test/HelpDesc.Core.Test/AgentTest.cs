@@ -1,7 +1,6 @@
 ﻿using HelpDesc.Api.Model;
 using HelpDesc.Api;
 using System.Threading.Tasks;
-using System;
 using FluentAssertions;
 using Xunit;
 using Orleans.TestingHost;
@@ -28,7 +27,7 @@ public class AgentTest
 
         var status = await agent.GetStatus();
         
-        status.Should().Be(Status.Free);
+        status.Should().Be(AgentStatus.Free);
     }
 
     [Fact]
@@ -38,6 +37,6 @@ public class AgentTest
 
         var status = await agent.AssignSession("123");
 
-        status.Should().Be(Status.Free);
+        status.Should().Be(AgentStatus.Free);
     }
 }

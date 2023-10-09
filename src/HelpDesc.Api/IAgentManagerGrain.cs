@@ -8,5 +8,5 @@ public interface IAgentManagerGrain: IGrainWithIntegerKey
 {
     Task<Agent> AssignAgent(string sessionId);
     Task<double> GetMaxQueueCapacity();
-    Task ChangeAgentStatus(string agentId, Status status);
+    Task ChangeAgentStatus(string agentId, AgentStatus status);
 }
