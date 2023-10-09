@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 using System.Threading.Tasks;
 using HelpDesc.Api;
@@ -46,7 +47,8 @@ public class SessionGrain : Grain, ISessionGrain
             {
                 var agentStream =
                     this.GetStream(sessionInfo.State.AllocatedAgentId, SolutionConst.AgentStreamNamespace);
-                agentSubs = (sessionInfo.State.AllocatedAgentId, await agentStream.SubscribeAsync(HandleAgentEvents));
+                var sub = await agentStream.SubscribeAsync((@event,_) => HandleAgentEvents(@event));
+                agentSubs = (sessionInfo.State.AllocatedAgentId, sub);
             }
 
             timerDispose = RegisterTimer(_ => TimerTick(), null, config.SessionPollInterval,
@@ -66,7 +68,8 @@ public class SessionGrain : Grain, ISessionGrain
                     {
                         sessionInfo.State.Status = SessionStatus.Dead;
                         sessionInfo.State.AllocatedAgentId = null;
-                        await agentSubs.sub.UnsubscribeAsync();
+                        if (agentSubs.sub != null)
+                            await agentSubs.sub.UnsubscribeAsync();
                         agentSubs = (default, null);
 
                         await sessionInfo.WriteStateAsync();
@@ -112,6 +115,7 @@ public class SessionGrain : Grain, ISessionGrain
                     await agentSubs.sub.UnsubscribeAsync();
                     agentSubs = (default, null);
                 }
+
                 break;
         }
     }
@@ -146,7 +150,8 @@ public class SessionGrain : Grain, ISessionGrain
 
         if (agentSubs.agentId == agentId && sessionInfo.State.AllocatedAgentId == agentId)
         {
-            logger.LogWarning("Attempt to allocate agent which was already allocated. Request ignored. Session id: {Id}.",
+            logger.LogWarning(
+                "Attempt to allocate agent which was already allocated. Request ignored. Session id: {Id}.",
                 this.GetPrimaryKeyString());
             return sessionInfo.State.Status;
         }
@@ -155,7 +160,8 @@ public class SessionGrain : Grain, ISessionGrain
             await agentSubs.sub.UnsubscribeAsync();
 
         var stream = this.GetStream(agentId, SolutionConst.AgentStreamNamespace);
-        agentSubs = (agentId, await stream.SubscribeAsync(HandleAgentEvents));
+        var sub = await stream.SubscribeAsync((@event, _) => HandleAgentEvents(@event));
+        agentSubs = (agentId, sub);
 
         sessionInfo.State.AllocatedAgentId = agentId;
         await sessionInfo.WriteStateAsync();
