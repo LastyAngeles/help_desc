@@ -22,6 +22,7 @@ public class AgentGrain : Grain, IAgentGrain
 
     //sessionId => subscription
     public Dictionary<string, StreamSubscriptionHandle<object>> RunningSubscriptions { get; set; } = new();
+    private IAsyncStream<object> agentStream;
 
     private AgentStatus currentStatus;
 
@@ -44,6 +45,8 @@ public class AgentGrain : Grain, IAgentGrain
         }
 
         var sessionIds = agentInfo.State.SessionIds;
+
+        agentStream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.AgentStreamNamespace);
 
         //if agent was busy before deactivation, it would not after
         //tasks would be re-assigned back to the agent
@@ -99,8 +102,7 @@ public class AgentGrain : Grain, IAgentGrain
         if (RunningSubscriptions.Count >= agentInfo.State.Capacity)
             return AgentStatus.Overloaded;
 
-        var stream = SolutionHelper.GetStream(this.GetStreamProvider(SolutionConst.StreamProviderName), sessionId,
-            SolutionConst.SessionStreamNamespace);
+        var stream = this.GetStream(sessionId, SolutionConst.SessionStreamNamespace);
 
         var subs = await stream.SubscribeAsync((@event, _) => HandleSessionEvents(sessionId, @event));
 

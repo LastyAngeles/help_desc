@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Orleans;
 using Orleans.Runtime;
 using Orleans.Streams;
 
@@ -48,8 +49,9 @@ public static class SolutionHelper
         return time >= start || time <= end;
     }
 
-    public static IAsyncStream<object> GetStream(IStreamProvider sp, string sessionId, string streamNamespace)
+    public static IAsyncStream<object> GetStream(this Grain grain, string sessionId, string streamNamespace)
     {
+        var sp = grain.GetStreamProvider(SolutionConst.StreamProviderName);
         var streamId = StreamId.Create(streamNamespace, sessionId);
         return sp.GetStream<object>(streamId);
     }

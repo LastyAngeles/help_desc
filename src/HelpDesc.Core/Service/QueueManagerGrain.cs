@@ -121,9 +121,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         if (status == SessionStatus.Dead)
             return false;
 
-        var stream = SolutionHelper.GetStream(this.GetStreamProvider(SolutionConst.StreamProviderName), sessionId,
-            SolutionConst.SessionStreamNamespace);
-
+        var stream = this.GetStream(sessionId, SolutionConst.SessionStreamNamespace);
         var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });
 
         PendingSubscriptions[sessionId] = subs;
