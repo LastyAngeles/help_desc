@@ -48,7 +48,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
             sessionIds = sessionIds.Remove(sessionId);
         }
 
-        var overflowCapacityCount = maxQueueCapacity - sessionIds.Count;
+        var overflowCapacityCount = sessionIds.Count - maxQueueCapacity;
 
         if (overflowCapacityCount > 0)
         {
