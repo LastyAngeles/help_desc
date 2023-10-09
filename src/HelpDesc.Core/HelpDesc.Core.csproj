@@ -11,6 +11,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
 		<PackageReference Include="Microsoft.Orleans.Server" />
 		<PackageReference Include="Microsoft.Orleans.Streaming" />
+		<PackageReference Include="Microsoft.Orleans.Reminders" />
 	</ItemGroup>
 
 	<ItemGroup>

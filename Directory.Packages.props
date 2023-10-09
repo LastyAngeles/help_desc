@@ -17,6 +17,7 @@
 		<PackageVersion Include="Microsoft.Orleans.Streaming" Version="$(MicrosoftPackagesVersion)" />
 		<PackageVersion Include="Microsoft.Orleans.Client" Version="$(MicrosoftPackagesVersion)" />
 		<PackageVersion Include="Microsoft.Orleans.Server" Version="$(MicrosoftPackagesVersion)" />
+		<PackageVersion Include="Microsoft.Orleans.Reminders" Version="$(MicrosoftPackagesVersion)" />
 
 		<PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="7.0.9" />
 		<PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
