@@ -162,6 +162,8 @@ public class SessionGrain : Grain, ISessionGrain
         return sessionInfo.State.Status;
     }
 
+    public Task<string> GetAllocatedAgentId() => Task.FromResult(sessionInfo.State.AllocatedAgentId);
+
     public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         sessionInfo.State.Status = SessionStatus.Disconnected;
