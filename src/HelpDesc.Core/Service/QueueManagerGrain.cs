@@ -88,13 +88,13 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
             const string exception =
                 "Queue is overloaded, new session can not be allocated. Session creation request will be skipped.";
             logger.LogError(exception);
-            return new SessionCreationResult(sessionId, false) { ExceptionMessage = exception };
+            return new SessionCreationResult(default, false) { ExceptionMessage = exception };
         }
 
         if (queueInfo.State.SessionIds.Any())
             return await AddToQueue();
 
-        var agent = agentManager.AssignAgent(sessionId);
+        var agent = await agentManager.AssignAgent(sessionId);
 
         if (agent == null)
             return await AddToQueue();
