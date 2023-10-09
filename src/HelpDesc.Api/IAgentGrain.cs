@@ -8,4 +8,5 @@ public interface IAgentGrain : IGrainWithStringKey
 {
     Task<Status> AssignSession(string sessionId);
     Task<Status> GetStatus();
+    Task CloseAgent();
 }

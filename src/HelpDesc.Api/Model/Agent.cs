@@ -15,7 +15,8 @@ public enum Status
 {
     Busy,
     Free,
-    Overloaded
+    Overloaded,
+    Closing
 }
 
 public enum SessionStatus
