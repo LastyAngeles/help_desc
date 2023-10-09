@@ -9,11 +9,13 @@ using HelpDesc.Core.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
+using Orleans.Runtime;
 
 namespace HelpDesc.Core.Service;
 
-public class AgentManagerGrain : Grain, IAgentManagerGrain
+public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 {
+    private readonly ITimeProvider timeProvider;
     private readonly ILogger<AgentManagerGrain> logger;
     private readonly TeamsConfig teamsConfig;
 
@@ -31,11 +33,15 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
     private double maxQueueCapacity;
     private double maxQueueCapacityMultiplier;
 
-    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions,
+    private const string TeamShiftReminderName = "teamShift";
+
+    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, ITimeProvider timeProvider,
         ILogger<AgentManagerGrain> logger)
     {
+        this.timeProvider = timeProvider;
+
         this.logger = logger;
-        teamsConfig = teamConfigOptions?.Value;
+        teamsConfig = teamConfigOptions.Value;
     }
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -46,7 +52,6 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         if (currentTeam == null)
             return;
 
-        var seniorityDescriptions = teamsConfig.SeniorityDescriptions;
         var currentTeamStuff = currentTeam.Stuff;
 
         //core team
@@ -59,77 +64,79 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
         var overflowTeam = teamsConfig.OverflowTeam;
         await PopulateTeam(overflowTeam.Stuff, OverflowAgentPool, overflowTeam.Name);
 
-        var agentsPool = OverflowAgentPool.Values.SelectMany(x => x).Concat(CoreAgentPool.Values.SelectMany(x => x))
-            .ToList();
-        AgentsPool = agentsPool;
+        AgentsPool = CombineAgentPools();
 
-        Team AllocateCurrentTeam()
+        var currentTime = timeProvider.Now().TimeOfDay;
+
+        // TODO: fix boundaries so that next team is allocated if one minute is left for current team. (Maxim Meshkov 2023-10-09)
+        await this.RegisterOrUpdateReminder(TeamShiftReminderName, currentTeam.EndWork - currentTime,
+            TimeSpan.Zero);
+    }
+
+    private Team AllocateCurrentTeam()
+    {
+        var currentTime = timeProvider.Now().TimeOfDay;
+
+        var availableTeamsBasedOnShift = teamsConfig.CoreTeams
+            .Where(x => SolutionHelper.IsTimeInRange(currentTime, x.StartWork, x.EndWork)).ToList();
+        var chosenTeam = availableTeamsBasedOnShift.FirstOrDefault();
+
+        if (chosenTeam == null)
         {
-            var currentTime = DateTime.Now.TimeOfDay;
-
-            if (teamsConfig == null)
-            {
-                logger.LogError(
-                    "Error in a process of agent manager initialization - team raster is empty. Grain id: {Id}",
-                    this.GetPrimaryKeyString());
-                return null;
-            }
-
-            var availableTeamsBasedOnShift = teamsConfig.CoreTeams
-                .Where(x => SolutionHelper.IsTimeInRange(currentTime, x.StartWork, x.EndWork)).ToList();
-            var chosenTeam = availableTeamsBasedOnShift.FirstOrDefault();
-
-            if (chosenTeam == null)
-            {
-                var overallTimeFrames = teamsConfig.CoreTeams.Select(x => (x.Name, x.StartWork, x.EndWork));
-                logger.LogError(
-                    "Error in a process of agent manager initialization - there is not matching team based on current time frame." +
-                    "Current time: {CurrentTime}; Overall time frames: {OverallTimeFrames}", currentTime,
-                    overallTimeFrames);
-                return null;
-            }
-
-            if (availableTeamsBasedOnShift.Count > 1)
-            {
-                var overlappedTeams = availableTeamsBasedOnShift.Where(x => x.Name != chosenTeam.Name);
-                logger.LogWarning(
-                    "Overlapping team hours detected. Current team would be chosen randomly. Chosen team: {ChosenTeam}; Overlapped teams: {OverlappedTeams}",
-                    chosenTeam, overlappedTeams);
-            }
-
-            return chosenTeam;
+            var overallTimeFrames = teamsConfig.CoreTeams.Select(x => (x.Name, x.StartWork, x.EndWork));
+            logger.LogError(
+                "Error in a process of agent manager initialization - there is not matching team based on current time frame." +
+                "Current time: {CurrentTime}; Overall time frames: {OverallTimeFrames}", currentTime,
+                overallTimeFrames);
+            return null;
         }
 
-        async Task PopulateTeam(Dictionary<string, int> requestedStuff, Dictionary<int, List<Agent>> agentPool, string teamName)
+        if (availableTeamsBasedOnShift.Count > 1)
         {
-            for (var i = 0; i < requestedStuff.Count; i++)
+            var overlappedTeams = availableTeamsBasedOnShift.Where(x => x.Name != chosenTeam.Name);
+            logger.LogWarning(
+                "Overlapping team hours detected. Current team would be chosen randomly. Chosen team: {ChosenTeam}; Overlapped teams: {OverlappedTeams}",
+                chosenTeam, overlappedTeams);
+        }
+
+        return chosenTeam;
+    }
+
+    private async Task PopulateTeam(Dictionary<string, int> requestedStuff, Dictionary<int, List<Agent>> agentPool,
+        string teamName)
+    {
+        var seniorityDescriptions = teamsConfig.SeniorityDescriptions;
+
+        for (var i = 0; i < requestedStuff.Count; i++)
+        {
+            var (senioritySystemName, membersCount) = requestedStuff.ElementAt(i);
+
+            var seniorityDescription = seniorityDescriptions.FirstOrDefault(x => x.Name == senioritySystemName);
+            if (seniorityDescription == null)
             {
-                var (senioritySystemName, membersCount) = requestedStuff.ElementAt(i);
+                logger.LogError(
+                    "Team config was wrongly populated, since it has no matching seniority description for given system name: {SystemName}." +
+                    "Priority can not be set correctly." +
+                    "Agents for this entry would not be created.",
+                    senioritySystemName);
+                continue;
+            }
 
-                var seniorityDescription = seniorityDescriptions.FirstOrDefault(x => x.Name == senioritySystemName);
-                if (seniorityDescription == null)
-                {
-                    logger.LogError(
-                        "Team config was wrongly populated, since it has no matching seniority description for given system name: {SystemName}." +
-                        "Priority can not be set correctly." +
-                        "Agents for this entry would not be created.",
-                        senioritySystemName);
-                    continue;
-                }
+            for (var j = 0; j < membersCount; j++)
+            {
+                var agentId = $"{teamName}.{senioritySystemName}.{j}";
+                var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
+                var agentStatus = await agentGrain.GetStatus();
 
-                for (var j = 0; j < membersCount; j++)
-                {
-                    var agentId = $"{teamName}.{senioritySystemName}.{j}";
-                    var agentGrain = GrainFactory.GetGrain<AgentGrain>(agentId);
-                    var agentStatus = await agentGrain.GetStatus();
-
-                    var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
-                        _ => new List<Agent>());
-                    ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
-                }
+                var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
+                    _ => new List<Agent>());
+                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
             }
         }
     }
+
+    private List<Agent> CombineAgentPools() => OverflowAgentPool.Values.SelectMany(x => x)
+        .Concat(CoreAgentPool.Values.SelectMany(x => x)).ToList();
 
     public async Task<Agent> AssignAgent(string sessionId)
     {
@@ -153,9 +160,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
                     ? availableAgents.Single()
                     : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
 
-                // TODO: handle overload case (impossible state, but it needs to be respected) (Maxim Meshkov 2023-10-08)
                 var updatedAgentStatus =
-                    await GrainFactory.GetGrain<AgentGrain>(assignedAgent.Id).AssignSession(sessionId);
+                    await GrainFactory.GetGrain<IAgentGrain>(assignedAgent.Id).AssignSession(sessionId);
 
                 assignedAgent.Availability = updatedAgentStatus;
 
@@ -185,11 +191,55 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain
 
         agent.Availability = status;
 
-        if (agent.Availability == Status.Free)
+        var allBusy = AgentsPool.All(x => x.Availability == Status.Busy);
+
+        if (!allBusy)
         {
-            // TODO: leading to a cross call! replace that with more reliable concept! (Maxim Meshkov 2023-10-08)
             var queueManager = GrainFactory.GetGrain<IQueueManagerGrain>(0);
-            await queueManager.AllocatePendingSession();
+            var sessionId = await queueManager.AllocateSinglePendingSession();
+            if (sessionId != null)
+                await AssignAgent(sessionId);
+        }
+    }
+
+    public async Task ReceiveReminder(string reminderName, TickStatus status)
+    {
+        if (reminderName == TeamShiftReminderName)
+        {
+            var prevAgentIds = CoreAgentPool.Values.SelectMany(x => x).Select(x => x.Id);
+
+            var nextTeam = AllocateCurrentTeam();
+            await PopulateTeam(nextTeam.Stuff, CoreAgentPool, nextTeam.Name);
+            CorePriorityRoundRobinMap.Clear();
+            AgentsPool = CombineAgentPools();
+
+            foreach (var prevAgentId in prevAgentIds)
+            {
+                var prevAgentGrain = GrainFactory.GetGrain<IAgentGrain>(prevAgentId);
+                await prevAgentGrain.CloseAgent();
+            }
+
+            var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(0);
+            var sessionIds = await queueManagerGrain.AllocatePendingSessions();
+
+            foreach (var sessionId in sessionIds)
+            {
+                var agent = await AssignAgent(sessionId);
+                if (agent == null)
+                    break;
+
+                sessionIds.Remove(sessionId);
+            }
+
+            if (sessionIds.Any())
+            {
+                // TODO: means, that next team can not handle queue length from prev. team (Maxim Meshkov 2023-10-09)
+                // TODO: find better way for such scenario (Maxim Meshkov 2023-10-09)
+                logger.LogError("Fresh team {TeamName} can not hold the queue from previous team.", nextTeam.Name);
+            }
+
+            var currentTime = timeProvider.Now().TimeOfDay;
+            await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime, TimeSpan.Zero);
         }
     }
 }
