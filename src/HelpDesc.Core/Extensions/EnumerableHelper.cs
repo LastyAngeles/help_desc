@@ -33,6 +33,8 @@ public static class SolutionHelper
         return splitValue?.Skip(1).FirstOrDefault() ?? splitValue?.FirstOrDefault() ?? primaryKey;
     }
 
+    public static string AgentIdFormatter(string teamName, string seniority, int idx) => $"{teamName}{SolutionConst.PrimaryKeySeparator}{seniority}{SolutionConst.PrimaryKeySeparator}{idx}";
+
     public static bool IsTimeInRange(TimeSpan time, TimeSpan start, TimeSpan end)
     {
         if (start <= end)

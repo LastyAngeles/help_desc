@@ -124,7 +124,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
             for (var j = 0; j < membersCount; j++)
             {
-                var agentId = $"{teamName}.{senioritySystemName}.{j}";
+                var agentId = SolutionHelper.AgentIdFormatter(teamName, senioritySystemName, j);
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();
 
