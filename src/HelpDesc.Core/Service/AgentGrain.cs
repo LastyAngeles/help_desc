@@ -28,9 +28,9 @@ public class AgentGrain : Grain, IAgentGrain
     private Status currentStatus;
 
     public AgentGrain(IOptions<TeamsConfig> teamConfig,
-        [PersistentState("agentsSessions", "helpDescStore")]
+        [PersistentState("agentsSessions", SolutionConst.HelpDescStore)]
         IPersistentState<ImmutableList<string>> processingSessions,
-        [PersistentState("agents", "helpDescStore")]
+        [PersistentState("agents", SolutionConst.HelpDescStore)]
         IPersistentState<AgentInfo> agentInfo)
     {
         this.teamConfig = teamConfig;
@@ -101,8 +101,8 @@ public class AgentGrain : Grain, IAgentGrain
         if (RunningSubscriptions.Count >= agentInfo.State.Capacity)
             return Status.Overloaded;
 
-        var sp = this.GetStreamProvider(StreamingConst.SessionStreamName);
-        var streamId = StreamId.Create(StreamingConst.SessionStreamNamespace, sessionId);
+        var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
+        var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
         var stream = sp.GetStream<object>(streamId);
 
         var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });

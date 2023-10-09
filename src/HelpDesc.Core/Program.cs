@@ -1,4 +1,5 @@
 ﻿using HelpDesc.Core;
+using HelpDesc.Core.Extensions;
 using HelpDesc.Core.Service;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,8 +15,9 @@ await Host.CreateDefaultBuilder(args)
     .UseOrleans(siloBuilder =>
     {
         siloBuilder.UseLocalhostClustering()
+            .AddMemoryStreams(SolutionConst.StreamProviderName)
             .AddMemoryGrainStorage("PubSubStore")
-            .UseInMemoryReminderService()
-            .AddMemoryStreams("desc");
+            .AddMemoryGrainStorage(SolutionConst.HelpDescStore)
+            .UseInMemoryReminderService();
     })
     .RunConsoleAsync();

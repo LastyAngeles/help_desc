@@ -1,3 +1,4 @@
+using HelpDesc.Core.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseOrleansClient(clientBuilder =>
 {
     clientBuilder.UseLocalhostClustering()
-        .AddMemoryStreams("desc");
+        .AddMemoryStreams(SolutionConst.StreamProviderName);
 });
 
 builder.Services.AddControllers();

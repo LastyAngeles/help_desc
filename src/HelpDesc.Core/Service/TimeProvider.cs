@@ -1,9 +1,8 @@
-
 using System;
 
 namespace HelpDesc.Core.Service;
 
-public interface ITimeProvider 
+public interface ITimeProvider
 {
     DateTime Now();
 }

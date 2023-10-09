@@ -22,7 +22,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     public Dictionary<string, StreamSubscriptionHandle<object>> PendingSubscriptions { get; set; } = new();
 
     public QueueManagerGrain(ILogger<QueueManagerGrain> logger,
-        [PersistentState("sessionsInQueue", "helpDescStore")]
+        [PersistentState("sessionsInQueue", SolutionConst.HelpDescStore)]
         IPersistentState<ImmutableList<string>> sessionsInQueue)
     {
         this.logger = logger;
@@ -118,8 +118,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         if (status == SessionStatus.Dead)
             return false;
 
-        var sp = this.GetStreamProvider(StreamingConst.SessionStreamName);
-        var streamId = StreamId.Create(StreamingConst.SessionStreamNamespace, sessionId);
+        var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
+        var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
         var stream = sp.GetStream<object>(streamId);
 
         var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });

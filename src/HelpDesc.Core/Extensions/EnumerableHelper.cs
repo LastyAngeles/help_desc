@@ -29,7 +29,7 @@ public static class SolutionHelper
     /// <returns></returns>
     public static string GetAgentSeniority(string primaryKey)
     {
-        return primaryKey?.Split(StreamingConst.PrimaryKeySeparator).Skip(1).First();
+        return primaryKey?.Split(SolutionConst.PrimaryKeySeparator).Skip(1).First();
     }
 
     public static bool IsTimeInRange(TimeSpan time, TimeSpan start, TimeSpan end)

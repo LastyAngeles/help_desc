@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using HelpDesc.Api;
 using HelpDesc.Api.Model;
@@ -11,18 +12,25 @@ namespace HelpDesc.Core.Service;
 
 public class SessionGrain : Grain, ISessionGrain
 {
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly TeamsConfig config;
     private readonly IPersistentState<SessionStatus> sessionStatus;
-    private readonly IDisposable timerDispose;
+    private IDisposable timerDispose;
     private int missingPollCount;
 
     public SessionGrain(IOptions<TeamsConfig> config,
-        [PersistentState("sessions", "helpDescStore")]
+        [PersistentState("sessions", SolutionConst.HelpDescStore)]
         IPersistentState<SessionStatus> sessionStatus)
     {
         this.config = config.Value;
         this.sessionStatus = sessionStatus;
+    }
+
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        await base.OnActivateAsync(cancellationToken);
+
+        if (!sessionStatus.RecordExists)
+            sessionStatus.State = SessionStatus.Alive;
 
         if (sessionStatus.State == SessionStatus.Alive)
         {
@@ -37,27 +45,27 @@ public class SessionGrain : Grain, ISessionGrain
                     if (sessionStatus.State == SessionStatus.Disconnected)
                     {
                         missingPollCount++;
-                        if (missingPollCount >= this.config.MaxMissingPolls)
+                        if (missingPollCount >= config.MaxMissingPolls)
                         {
                             sessionStatus.State = SessionStatus.Dead;
                             await sessionStatus.WriteStateAsync();
 
 
-                            var sp = this.GetStreamProvider(StreamingConst.SessionStreamName);
-                            var streamId = StreamId.Create(StreamingConst.SessionStreamNamespace,
+                            var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
+                            var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace,
                                 this.GetPrimaryKeyString());
                             var stream = sp.GetStream<object>(streamId);
                             await stream.OnNextAsync(new SessionDeadEvent());
 
-                            timerDispose!.Dispose();
+                            timerDispose.Dispose();
                         }
                     }
                     else
                     {
-                        timerDispose!.Dispose();
+                        timerDispose.Dispose();
                     }
                 }
-            }, null, TimeSpan.Zero, this.config.SessionPollInterval);
+            }, null, config.SessionPollInterval, config.SessionPollInterval);
         }
     }
 
