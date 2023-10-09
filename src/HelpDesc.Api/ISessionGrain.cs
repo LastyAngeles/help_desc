@@ -10,5 +10,5 @@ public interface ISessionGrain : IGrainWithStringKey
 
     Task<SessionStatus> GetStatus();
 
-    Task<SessionStatus> AllocateAgent(Agent agent);
+    Task<SessionStatus> AllocateAgent(string agentId);
 }

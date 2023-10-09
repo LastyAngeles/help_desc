@@ -49,10 +49,10 @@ public static class SolutionHelper
         return time >= start || time <= end;
     }
 
-    public static IAsyncStream<object> GetStream(this Grain grain, string sessionId, string streamNamespace)
+    public static IAsyncStream<object> GetStream(this Grain grain, string id, string streamNamespace)
     {
         var sp = grain.GetStreamProvider(SolutionConst.StreamProviderName);
-        var streamId = StreamId.Create(streamNamespace, sessionId);
+        var streamId = StreamId.Create(streamNamespace, id);
         return sp.GetStream<object>(streamId);
     }
 }

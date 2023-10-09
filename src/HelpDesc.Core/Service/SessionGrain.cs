@@ -21,7 +21,7 @@ public class SessionGrain : Grain, ISessionGrain
     private IDisposable timerDispose;
     private int missingPollCount;
 
-    private StreamSubscriptionHandle<object> agentSubs;
+    private (string agentId, StreamSubscriptionHandle<object> sub) agentSubs;
 
     public SessionGrain(IOptions<TeamsConfig> config,
         [PersistentState("sessions", SolutionConst.HelpDescStore)]
@@ -46,10 +46,11 @@ public class SessionGrain : Grain, ISessionGrain
             {
                 var agentStream =
                     this.GetStream(sessionInfo.State.AllocatedAgentId, SolutionConst.AgentStreamNamespace);
-                agentSubs = await agentStream.SubscribeAsync(HandleAgentEvents);
+                agentSubs = (sessionInfo.State.AllocatedAgentId, await agentStream.SubscribeAsync(HandleAgentEvents));
             }
 
-            timerDispose = RegisterTimer(_ => TimerTick(), null, config.SessionPollInterval, config.SessionPollInterval);
+            timerDispose = RegisterTimer(_ => TimerTick(), null, config.SessionPollInterval,
+                config.SessionPollInterval);
         }
 
         async Task TimerTick()
@@ -65,7 +66,9 @@ public class SessionGrain : Grain, ISessionGrain
                     {
                         sessionInfo.State.Status = SessionStatus.Dead;
                         sessionInfo.State.AllocatedAgentId = null;
-                        await agentSubs.UnsubscribeAsync();
+                        await agentSubs.sub.UnsubscribeAsync();
+                        agentSubs = (default, null);
+
                         await sessionInfo.WriteStateAsync();
 
                         var stream = this.GetStream(this.GetPrimaryKeyString(),
@@ -104,8 +107,11 @@ public class SessionGrain : Grain, ISessionGrain
             case AgentIsDisposing _:
                 sessionInfo.State.AllocatedAgentId = null;
                 await sessionInfo.WriteStateAsync();
-                if (agentSubs != null)
-                    await agentSubs.UnsubscribeAsync();
+                if (agentSubs.sub != null)
+                {
+                    await agentSubs.sub.UnsubscribeAsync();
+                    agentSubs = (default, null);
+                }
                 break;
         }
     }
@@ -123,17 +129,33 @@ public class SessionGrain : Grain, ISessionGrain
 
     public async Task<SessionStatus> AllocateAgent(string agentId)
     {
-        if(sessionInfo.State.Status == SessionStatus.Dead)
+        if (sessionInfo.State.Status == SessionStatus.Dead)
         {
-            logger.LogWarning("Attempt to allocate agent to the dead session. Request ignored. Session id: {Id}. Agent id: {AgentId}", this.GetPrimaryKeyString(), agentId);
+            logger.LogWarning(
+                "Attempt to allocate agent to the dead session. Request ignored. Session id: {Id}. Agent id: {AgentId}",
+                this.GetPrimaryKeyString(), agentId);
             return sessionInfo.State.Status;
         }
 
         if (string.IsNullOrEmpty(agentId))
         {
-            logger.LogWarning("Attempt to allocate agent with null or empty id. Request ignored. Session id: {Id}.", this.GetPrimaryKeyString());
+            logger.LogWarning("Attempt to allocate agent with null or empty id. Request ignored. Session id: {Id}.",
+                this.GetPrimaryKeyString());
             return sessionInfo.State.Status;
         }
+
+        if (agentSubs.agentId == agentId && sessionInfo.State.AllocatedAgentId == agentId)
+        {
+            logger.LogWarning("Attempt to allocate agent which was already allocated. Request ignored. Session id: {Id}.",
+                this.GetPrimaryKeyString());
+            return sessionInfo.State.Status;
+        }
+
+        if (!string.IsNullOrEmpty(agentSubs.agentId))
+            await agentSubs.sub.UnsubscribeAsync();
+
+        var stream = this.GetStream(agentId, SolutionConst.AgentStreamNamespace);
+        agentSubs = (agentId, await stream.SubscribeAsync(HandleAgentEvents));
 
         sessionInfo.State.AllocatedAgentId = agentId;
         await sessionInfo.WriteStateAsync();
