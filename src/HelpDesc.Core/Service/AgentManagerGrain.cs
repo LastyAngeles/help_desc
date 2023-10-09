@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,7 +55,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
         //core team
         await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
-
+        
         maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
         maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
 
@@ -70,7 +69,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
         // TODO: fix boundaries so that next team is allocated if one minute is left for current team. (Maxim Meshkov 2023-10-09)
         await this.RegisterOrUpdateReminder(TeamShiftReminderName, currentTeam.EndWork - currentTime,
-            TimeSpan.Zero);
+            SolutionConst.ReminderPeriod);
     }
 
     private Team AllocateCurrentTeam()
@@ -210,6 +209,9 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
             var nextTeam = AllocateCurrentTeam();
             await PopulateTeam(nextTeam.Stuff, CoreAgentPool, nextTeam.Name);
+
+            maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
+
             CorePriorityRoundRobinMap.Clear();
             AgentsPool = CombineAgentPools();
 
@@ -239,7 +241,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             }
 
             var currentTime = timeProvider.Now().TimeOfDay;
-            await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime, TimeSpan.Zero);
+            await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime, SolutionConst.ReminderPeriod);
         }
     }
 }
