@@ -5,13 +5,13 @@ using HelpDesc.Api;
 using HelpDesc.Api.Model;
 using Orleans.TestingHost;
 using Xunit;
+using static HelpDesc.Core.Test.Data.TestingMockData;
 
 namespace HelpDesc.Core.Test;
 
 [Collection(ClusterCollection.Name)]
 public class SessionTest
 {
-    private readonly TimeSpan secondsBeforeSessionIsDead = ClusterFixture.PollInterval * (ClusterFixture.MaxMissingPolls + 1);
 
     private readonly TestCluster cluster;
 
@@ -49,7 +49,7 @@ public class SessionTest
         var status = await sessionGrain.GetStatus();
         status.Should().Be(SessionStatus.Disconnected);
 
-        await Task.Delay(secondsBeforeSessionIsDead);
+        await Task.Delay(SecondsBeforeSessionIsDead);
 
         status = await sessionGrain.GetStatus();
         status.Should().Be(SessionStatus.Dead);

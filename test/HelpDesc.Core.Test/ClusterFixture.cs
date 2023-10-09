@@ -10,9 +10,6 @@ namespace HelpDesc.Core.Test;
 
 public class ClusterFixture : IDisposable
 {
-    public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
-    public static readonly int MaxMissingPolls = 3;
-
     public ClusterFixture()
     {
         var builder = new TestClusterBuilder();

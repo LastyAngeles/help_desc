@@ -5,7 +5,7 @@ using FluentAssertions;
 using Xunit;
 using Orleans.TestingHost;
 using HelpDesc.Core.Extensions;
-using HelpDesc.Core.Test.Data;
+using static HelpDesc.Core.Test.Data.TestingMockData;
 
 namespace HelpDesc.Core.Test;
 
@@ -22,7 +22,7 @@ public class AgentTest
     [Fact]
     public async Task BasicStatusTest()
     {
-        var agentId = SolutionHelper.AgentIdFormatter("Team A", TestingMockData.JuniorSystemName, 0);
+        var agentId = SolutionHelper.AgentIdFormatter("Team A", JuniorSystemName, 0);
         var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
 
         var status = await agent.GetStatus();
@@ -31,12 +31,28 @@ public class AgentTest
     }
 
     [Fact]
-    public async Task AssignSessionTest()
+    public async Task AgentCapacityTest()
     {
-        var agent = cluster.GrainFactory.GetGrain<IAgentGrain>("1");
+        var capacity = JuniorCapacity;
+        var agentId = SolutionHelper.AgentIdFormatter("Team A", JuniorSystemName, 0);
 
-        var status = await agent.AssignSession("123");
+        var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
 
-        status.Should().Be(AgentStatus.Free);
+        var agentStatus = await agent.GetStatus();
+        agentStatus.Should().Be(AgentStatus.Free);
+        capacity.Should().BeGreaterThan(0);
+
+        for (var i = 0; i < capacity; i++)
+            agentStatus = await agent.AssignSession($"session.{i}");
+
+        agentStatus.Should().Be(AgentStatus.Busy);
+
+        var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{0}");
+        await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
+
+        await Task.Delay(SecondsBeforeSessionIsDead);
+
+        agentStatus = await agent.GetStatus();
+        agentStatus.Should().Be(AgentStatus.Free);
     }
 }

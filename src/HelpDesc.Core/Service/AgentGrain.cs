@@ -90,7 +90,8 @@ public class AgentGrain : Grain, IAgentGrain
         var sessionGrain = GrainFactory.GetGrain<ISessionGrain>(sessionId);
         var sessionStatus = await sessionGrain.GetStatus();
 
-        if (sessionStatus == SessionStatus.Dead || currentStatus is AgentStatus.Busy && (respectClosing && currentStatus == AgentStatus.Closing))
+        if (sessionStatus == SessionStatus.Dead || currentStatus is AgentStatus.Busy &&
+            (respectClosing && currentStatus == AgentStatus.Closing))
             return currentStatus;
 
         //do not take additional sessions in case it is outside the capability limit
@@ -102,7 +103,7 @@ public class AgentGrain : Grain, IAgentGrain
         var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
         var stream = sp.GetStream<object>(streamId);
 
-        var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });
+        var subs = await stream.SubscribeAsync((@event, _) => HandleSessionEvents(sessionId, @event));
 
         RunningSubscriptions.Add(sessionId, subs);
 

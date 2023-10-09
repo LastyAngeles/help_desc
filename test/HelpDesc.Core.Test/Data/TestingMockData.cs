@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HelpDesc.Core.Test.Data;
 
@@ -8,12 +9,8 @@ public class TestingMockData
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     public static readonly int MaxMissingPolls = 3;
     public static readonly double MaxQueueCapacityMultiplier = 1.5;
-    public static readonly int MaxConcurrency = 10;
-
-    public const string JuniorSystemName = "jnr";
-    public const string MiddleSystemName = "mdl";
-    public const string SeniorSystemName = "snr";
-    public const string TeamLeadSystemName = "tld";
+    public static readonly int MaxConcurrency = 5;
+    public static readonly TimeSpan SecondsBeforeSessionIsDead = PollInterval * (MaxMissingPolls + 1);
 
     public static List<SeniorityDescription> SeniorityDescriptions { get; set; } = new()
     {
@@ -22,6 +19,23 @@ public class TestingMockData
         new SeniorityDescription(SeniorSystemName, "Senior", 3, 0.8),
         new SeniorityDescription(TeamLeadSystemName, "Team-Lead", 4, 0.5)
     };
+
+    public const string JuniorSystemName = "jnr";
+    public const string MiddleSystemName = "mdl";
+    public const string SeniorSystemName = "snr";
+    public const string TeamLeadSystemName = "tld";
+
+    public static int JuniorCapacity =
+        (int)Math.Floor(SeniorityDescriptions.First(x => x.Name == JuniorSystemName).Capacity * MaxConcurrency);
+
+    public static int MiddleCapacity =
+        (int)Math.Floor(SeniorityDescriptions.First(x => x.Name == MiddleSystemName).Capacity * MaxConcurrency);
+
+    public static int SeniorCapacity =
+        (int)Math.Floor(SeniorityDescriptions.First(x => x.Name == SeniorSystemName).Capacity * MaxConcurrency);
+
+    public static int TeamLeadCapacity =
+        (int)Math.Floor(SeniorityDescriptions.First(x => x.Name == TeamLeadSystemName).Capacity * MaxConcurrency);
 
     public static List<Team> CoreTeams { get; set; } = new()
     {
