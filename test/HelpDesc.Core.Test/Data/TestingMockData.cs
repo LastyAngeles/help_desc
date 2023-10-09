@@ -8,6 +8,7 @@ public class TestingMockData
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
     public static readonly int MaxMissingPolls = 3;
     public static readonly double MaxQueueCapacityMultiplier = 1.5;
+    public static readonly int MaxConcurrency = 10;
 
     public const string JuniorSystemName = "jnr";
     public const string MiddleSystemName = "mdl";

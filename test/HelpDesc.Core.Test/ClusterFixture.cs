@@ -47,6 +47,7 @@ public class TestSiloConfigurations : ISiloConfigurator
                 teamsConfig.CoreTeams = CoreTeams;
                 teamsConfig.OverflowTeam = OverflowTeam;
                 teamsConfig.MaximumQueueCapacityMultiplier = MaxQueueCapacityMultiplier;
+                teamsConfig.MaximumConcurrency = MaxConcurrency;
                 teamsConfig.SeniorityDescriptions = SeniorityDescriptions;
                 teamsConfig.MaxMissingPolls = MaxMissingPolls;
                 teamsConfig.SessionPollInterval = PollInterval;
