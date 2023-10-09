@@ -57,4 +57,73 @@ public class AgentManagerTest
 
         overflowTeam.Should().Contain(overflowAgent);
     }
+
+    [Fact]
+    public async Task SessionRequestNotAllocatedAfterOverloadTest()
+    {
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        const string sessionId = "sessionId";
+
+        var coreTeam = await agentManager.GetCoreTeam();
+        var overflowTeam = await agentManager.GetOverflowTeam();
+
+        var maxCoreCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+        var maxOverflowCapacity = overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+
+        for (var i = 0; i < maxCoreCapacity; i++)
+            await agentManager.AssignAgent($"{sessionId}.core.{i}");
+
+        for (var i = 0; i < maxOverflowCapacity; i++)
+            await agentManager.AssignAgent($"{sessionId}.overflow.{i}");
+
+        coreTeam = await agentManager.GetCoreTeam();
+        coreTeam.Select(x => x.Availability == AgentStatus.Busy).Count().Should().Be(coreTeam.Count);
+
+        overflowTeam = await agentManager.GetOverflowTeam();
+        overflowTeam.Select(x => x.Availability == AgentStatus.Busy).Count().Should().Be(overflowTeam.Count);
+
+        var agent = await agentManager.AssignAgent($"{sessionId}.notAllocated.{0}");
+        agent.Should().BeNull();
+
+        var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"{sessionId}.notAllocated.{0}");
+        var agentId = await sessionGrain.GetAllocatedAgentId();
+
+        agentId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AllocateSessionAfterAgentBecameFreeTest()
+    {
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        const string sessionId = "sessionId";
+
+        var coreTeam = await agentManager.GetCoreTeam();
+        var overflowTeam = await agentManager.GetOverflowTeam();
+
+        var maxCoreCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+        var maxOverflowCapacity = overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+
+        for (var i = 0; i < maxCoreCapacity; i++)
+            await agentManager.AssignAgent($"{sessionId}.core.{i}");
+
+        for (var i = 0; i < maxOverflowCapacity; i++)
+            await agentManager.AssignAgent($"{sessionId}.overflow.{i}");
+
+        var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"{sessionId}.core.{0}");
+        var agentId = await sessionGrain.GetAllocatedAgentId();
+
+        var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
+        (await agent.GetStatus()).Should().Be(AgentStatus.Busy);
+
+        await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
+
+        await Task.Delay(SecondsBeforeSessionIsDead);
+
+        (await agent.GetStatus()).Should().Be(AgentStatus.Free);
+
+        var newlyAssignedAgent = await agentManager.AssignAgent($"{sessionId}.freshSession.{0}");
+
+        newlyAssignedAgent.Id.Should().Be(agentId);
+        newlyAssignedAgent.Availability.Should().Be(AgentStatus.Busy);
+    }
 }
