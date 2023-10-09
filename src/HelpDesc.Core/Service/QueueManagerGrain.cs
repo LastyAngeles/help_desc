@@ -7,26 +7,26 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans.Runtime;
-using System.Collections.Immutable;
 using System.Linq;
 using HelpDesc.Core.Extensions;
 using Orleans.Streams;
+using HelpDesc.Core.Service.Serialization;
 
 namespace HelpDesc.Core.Service;
 
 public class QueueManagerGrain : Grain, IQueueManagerGrain
 {
     private readonly ILogger<QueueManagerGrain> logger;
-    private readonly IPersistentState<ImmutableList<string>> sessionsInQueue;
+    private readonly IPersistentState<QueueManagerInfo> queueInfo;
 
     public Dictionary<string, StreamSubscriptionHandle<object>> PendingSubscriptions { get; set; } = new();
 
     public QueueManagerGrain(ILogger<QueueManagerGrain> logger,
-        [PersistentState("sessionsInQueue", SolutionConst.HelpDescStore)]
-        IPersistentState<ImmutableList<string>> sessionsInQueue)
+        [PersistentState("queueInfo", SolutionConst.HelpDescStore)]
+        IPersistentState<QueueManagerInfo> queueInfo)
     {
         this.logger = logger;
-        this.sessionsInQueue = sessionsInQueue;
+        this.queueInfo = queueInfo;
     }
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -37,16 +37,18 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
         var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 
-        foreach (var sessionId in sessionsInQueue.State)
+        var sessionIds = queueInfo.State.SessionIds;
+
+        foreach (var sessionId in sessionIds)
         {
             var agent = agentManager.AssignAgent(sessionId);
             if (agent == null)
                 break;
 
-            sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
+            sessionIds = sessionIds.Remove(sessionId);
         }
 
-        var overflowCapacityCount = maxQueueCapacity - sessionsInQueue.State.Count;
+        var overflowCapacityCount = maxQueueCapacity - sessionIds.Count;
 
         if (overflowCapacityCount > 0)
         {
@@ -54,8 +56,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
             var idsToBeRemoved = new List<string>();
             for (var i = 0; i < overflowCapacityCount; i++)
             {
-                idsToBeRemoved.Add(sessionsInQueue.State[^1]);
-                sessionsInQueue.State = sessionsInQueue.State.RemoveAt(sessionsInQueue.State.Count - 1);
+                idsToBeRemoved.Add(sessionIds[^1]);
+                sessionIds = sessionIds.RemoveAt(sessionIds.Count - 1);
             }
 
             logger.LogWarning("Current team can not handle pending sessions." +
@@ -63,13 +65,14 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
                               "Ids to be removed from queue: {RemovedIds}", maxQueueCapacity, idsToBeRemoved);
         }
 
-        foreach (var sessionId in sessionsInQueue.State)
+        foreach (var sessionId in sessionIds)
         {
             if (!await SubscribeToSession(sessionId))
-                sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
+                sessionIds = sessionIds.Remove(sessionId);
         }
 
-        await sessionsInQueue.WriteStateAsync();
+        queueInfo.State.SessionIds = sessionIds;
+        await queueInfo.WriteStateAsync();
     }
 
     public async Task<SessionCreationResult> CreateSession()
@@ -80,7 +83,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         // TODO: cache this value properly (Maxim Meshkov 2023-10-09)
         var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 
-        if (sessionsInQueue.State.Count + 1 > maxQueueCapacity)
+        if (queueInfo.State.SessionIds.Count + 1 > maxQueueCapacity)
         {
             const string exception =
                 "Queue is overloaded, new session can not be allocated. Session creation request will be skipped.";
@@ -88,7 +91,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
             return new SessionCreationResult(sessionId, false) { ExceptionMessage = exception };
         }
 
-        if (sessionsInQueue.State.Any())
+        if (queueInfo.State.SessionIds.Any())
             return await AddToQueue();
 
         var agent = agentManager.AssignAgent(sessionId);
@@ -102,8 +105,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         {
             if (await SubscribeToSession(sessionId))
             {
-                sessionsInQueue.State = sessionsInQueue.State.Add(sessionId);
-                await sessionsInQueue.WriteStateAsync();
+                queueInfo.State.SessionIds = queueInfo.State.SessionIds.Add(sessionId);
+                await queueInfo.WriteStateAsync();
                 return new SessionCreationResult(sessionId, true);
             }
 
@@ -134,32 +137,32 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     {
         var ret = new List<string>();
 
-        foreach (var _ in sessionsInQueue.State)
+        foreach (var _ in queueInfo.State.SessionIds)
         {
             var pendingSessionId = await AllocatePendingSessionInner(false);
             ret.Add(pendingSessionId);
         }
 
-        await sessionsInQueue.WriteStateAsync();
+        await queueInfo.WriteStateAsync();
 
         return ret;
     }
 
     public async Task<string> AllocatePendingSessionInner(bool writeState = true)
     {
-        if (!sessionsInQueue.State.Any())
+        if (!queueInfo.State.SessionIds.Any())
             //nothing to allocate
             return null;
 
-        var sessionId = sessionsInQueue.State.First();
+        var sessionId = queueInfo.State.SessionIds.First();
 
         if (PendingSubscriptions.TryGetValue(sessionId, out var sessionSub))
             await sessionSub.UnsubscribeAsync();
 
-        if (writeState)
-            await sessionsInQueue.WriteStateAsync();
+        queueInfo.State.SessionIds = queueInfo.State.SessionIds.Remove(sessionId);
 
-        sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
+        if (writeState)
+            await queueInfo.WriteStateAsync();
 
         return sessionId;
     }
@@ -176,8 +179,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     {
         if (PendingSubscriptions.TryGetValue(sessionId, out var subToDispose))
         {
-            sessionsInQueue.State = sessionsInQueue.State.Remove(sessionId);
-            await sessionsInQueue.WriteStateAsync();
+            queueInfo.State.SessionIds = queueInfo.State.SessionIds.Remove(sessionId);
+            await queueInfo.WriteStateAsync();
 
             await subToDispose.UnsubscribeAsync();
             PendingSubscriptions.Remove(sessionId);
