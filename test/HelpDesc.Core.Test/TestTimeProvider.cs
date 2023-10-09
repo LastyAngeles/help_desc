@@ -1,6 +1,5 @@
 using System;
 using HelpDesc.Core.Service;
-using Xunit;
 
 namespace HelpDesc.Core.Test;
 
@@ -15,6 +14,6 @@ public class TestTimeProvider : ITimeProvider
 
     public void SetNow(DateTime? now)
     {
-        this.now = now; 
+        this.now = now;
     }
 }

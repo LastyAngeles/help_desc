@@ -83,6 +83,7 @@ public class SessionGrain : Grain, ISessionGrain
     {
         sessionStatus.State = SessionStatus.Disconnected;
         await sessionStatus.WriteStateAsync();
+
         await base.OnDeactivateAsync(reason, cancellationToken);
     }
 }
