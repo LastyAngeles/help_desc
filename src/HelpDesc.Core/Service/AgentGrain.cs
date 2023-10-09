@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using HelpDesc.Api;
 using HelpDesc.Api.Model;
 using HelpDesc.Core.Extensions;
+using HelpDesc.Core.Service.Serialization;
 using Microsoft.Extensions.Options;
 using Orleans;
 using Orleans.Runtime;
@@ -14,12 +15,9 @@ using Orleans.Streams;
 
 namespace HelpDesc.Core.Service;
 
-public record AgentInfo(int Capacity);
-
 public class AgentGrain : Grain, IAgentGrain
 {
     private readonly IOptions<TeamsConfig> teamConfig;
-    private readonly IPersistentState<ImmutableList<string>> processingSessions;
     private readonly IPersistentState<AgentInfo> agentInfo;
 
     //sessionId => subscription
@@ -28,13 +26,10 @@ public class AgentGrain : Grain, IAgentGrain
     private Status currentStatus;
 
     public AgentGrain(IOptions<TeamsConfig> teamConfig,
-        [PersistentState("agentsSessions", SolutionConst.HelpDescStore)]
-        IPersistentState<ImmutableList<string>> processingSessions,
-        [PersistentState("agents", SolutionConst.HelpDescStore)]
+        [PersistentState("agentsInfo", SolutionConst.HelpDescStore)]
         IPersistentState<AgentInfo> agentInfo)
     {
         this.teamConfig = teamConfig;
-        this.processingSessions = processingSessions;
         this.agentInfo = agentInfo;
     }
 
@@ -42,13 +37,15 @@ public class AgentGrain : Grain, IAgentGrain
     {
         await base.OnActivateAsync(cancellationToken);
 
-        var sessionIds = processingSessions.State;
         if (!agentInfo.RecordExists)
         {
-            agentInfo.State = new AgentInfo(GetMaxCapacity());
+            agentInfo.State = new AgentInfo(ImmutableList<string>.Empty, GetMaxCapacity());
             await agentInfo.WriteStateAsync();
         }
 
+        var sessionIds = agentInfo.State.SessionIds;
+
+        currentStatus = Status.Free;
         var updateIsRequired = false;
 
         foreach (var sessionId in sessionIds)
@@ -58,7 +55,7 @@ public class AgentGrain : Grain, IAgentGrain
             if (sessionStatus == SessionStatus.Dead)
             {
                 updateIsRequired = true;
-                processingSessions.State = sessionIds.Remove(sessionId);
+                agentInfo.State.SessionIds = sessionIds.Remove(sessionId);
                 continue;
             }
 
@@ -70,7 +67,7 @@ public class AgentGrain : Grain, IAgentGrain
 
         //update current state
         if (updateIsRequired)
-            await processingSessions.WriteStateAsync();
+            await agentInfo.WriteStateAsync();
     }
 
     private int GetMaxCapacity()
@@ -111,8 +108,8 @@ public class AgentGrain : Grain, IAgentGrain
 
         if (shouldSaveState)
         {
-            processingSessions.State = processingSessions.State.Add(sessionId);
-            await processingSessions.WriteStateAsync();
+            agentInfo.State.SessionIds = agentInfo.State.SessionIds.Add(sessionId);
+            await agentInfo.WriteStateAsync();
         }
 
         currentStatus = CalculateCurrentStatus();
@@ -132,8 +129,8 @@ public class AgentGrain : Grain, IAgentGrain
     {
         if (RunningSubscriptions.TryGetValue(sessionId, out var subToDispose))
         {
-            processingSessions.State = processingSessions.State.Remove(sessionId);
-            await processingSessions.WriteStateAsync();
+            agentInfo.State.SessionIds = agentInfo.State.SessionIds.Remove(sessionId);
+            await agentInfo.WriteStateAsync();
 
             await subToDispose.UnsubscribeAsync();
             RunningSubscriptions.Remove(sessionId);
