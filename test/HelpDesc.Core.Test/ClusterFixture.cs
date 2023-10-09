@@ -4,6 +4,7 @@ using Orleans.Hosting;
 using HelpDesc.Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using HelpDesc.Core.Service;
+using Microsoft.Extensions.Configuration;
 using static HelpDesc.Core.Test.Data.TestingMockData;
 
 namespace HelpDesc.Core.Test;
@@ -13,6 +14,7 @@ public class ClusterFixture : IDisposable
     public ClusterFixture()
     {
         var builder = new TestClusterBuilder();
+        builder.AddClientBuilderConfigurator<TestClientConfigurations>();
         builder.AddSiloBuilderConfigurator<TestSiloConfigurations>();
         Cluster = builder.Build();
         Cluster.Deploy();
@@ -50,5 +52,13 @@ public class TestSiloConfigurations : ISiloConfigurator
                 teamsConfig.SessionPollInterval = PollInterval;
             });
         });
+    }
+}
+
+public class TestClientConfigurations : IClientBuilderConfigurator
+{
+    public void Configure(IConfiguration configuration, IClientBuilder clientBuilder)
+    {
+        clientBuilder.AddMemoryStreams(SolutionConst.StreamProviderName);
     }
 }

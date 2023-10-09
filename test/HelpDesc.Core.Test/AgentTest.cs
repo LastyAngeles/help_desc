@@ -31,6 +31,28 @@ public class AgentTest
     }
 
     [Fact]
+    public async Task AgentAllocationTest()
+    {
+        var capacity = JuniorCapacity - 1;
+        var agentId = SolutionHelper.AgentIdFormatter("Team A", JuniorSystemName, 0);
+
+        var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
+
+        var agentStatus = await agent.GetStatus();
+        agentStatus.Should().Be(AgentStatus.Free);
+        capacity.Should().BeGreaterThan(0);
+
+        for (var i = 0; i < capacity; i++)
+        {
+            var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{0}");
+            agentStatus = await agent.AssignSession($"session.{i}");
+            agentStatus.Should().Be(AgentStatus.Free);
+            var allocatedAgentId = await sessionGrain.GetAllocatedAgentId();
+            allocatedAgentId.Should().Be(agentId);
+        }
+    }
+
+    [Fact]
     public async Task AgentCapacityTest()
     {
         var capacity = JuniorCapacity;
@@ -49,8 +71,13 @@ public class AgentTest
 
         var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{0}");
         await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
+        var agentIdBeforeDispose = await sessionGrain.GetAllocatedAgentId();
+        agentIdBeforeDispose.Should().Be(agentId);
 
         await Task.Delay(SecondsBeforeSessionIsDead);
+
+        var agentIdAfterDispose = await sessionGrain.GetAllocatedAgentId();
+        agentIdAfterDispose.Should().NotBe(agentIdBeforeDispose).And.BeNull();
 
         agentStatus = await agent.GetStatus();
         agentStatus.Should().Be(AgentStatus.Free);
@@ -80,6 +107,8 @@ public class AgentTest
 
         //create session which should not be allocated
         var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{capacity}");
+        var allocatedAgentId = await sessionGrain.GetAllocatedAgentId();
+        allocatedAgentId.Should().BeNull("No one allocate this session, because agent capacity was overloaded.");
         await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
 
         await Task.Delay(SecondsBeforeSessionIsDead);
