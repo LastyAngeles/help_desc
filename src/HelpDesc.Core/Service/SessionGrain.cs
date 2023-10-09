@@ -50,7 +50,6 @@ public class SessionGrain : Grain, ISessionGrain
                             sessionStatus.State = SessionStatus.Dead;
                             await sessionStatus.WriteStateAsync();
 
-
                             var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
                             var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace,
                                 this.GetPrimaryKeyString());
@@ -79,4 +78,11 @@ public class SessionGrain : Grain, ISessionGrain
     }
 
     public Task<SessionStatus> GetStatus() => Task.FromResult(sessionStatus.State);
+
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
+    {
+        sessionStatus.State = SessionStatus.Disconnected;
+        await sessionStatus.WriteStateAsync();
+        await base.OnDeactivateAsync(reason, cancellationToken);
+    }
 }
