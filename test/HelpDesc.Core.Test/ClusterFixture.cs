@@ -34,7 +34,7 @@ public class TestSiloConfigurations : ISiloConfigurator
         siloBuilder
             .AddMemoryStreams(SolutionConst.StreamProviderName)
             .AddMemoryGrainStorage("PubSubStore")
-            .AddMemoryGrainStorage("helpDescStore")
+            .AddMemoryGrainStorage(SolutionConst.HelpDescStore)
             .UseInMemoryReminderService();
 
         siloBuilder.ConfigureServices(services =>
