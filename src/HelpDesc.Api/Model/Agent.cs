@@ -3,12 +3,13 @@
 namespace HelpDesc.Api.Model;
 
 [GenerateSerializer]
-public record Agent(string Id, string Seniority, int Priority, AgentStatus Availability)
+public record Agent(string Id, string Seniority, int Priority, AgentStatus Availability, double Capacity)
 {
     [Id(0)] public string Id { get; set; } = Id;
-    [Id(0)] public string Seniority { get; set; } = Seniority;
-    [Id(0)] public int Priority { get; set; } = Priority;
-    [Id(0)] public AgentStatus Availability { get; set; } = Availability;
+    [Id(1)] public string Seniority { get; set; } = Seniority;
+    [Id(2)] public int Priority { get; set; } = Priority;
+    [Id(3)] public AgentStatus Availability { get; set; } = Availability;
+    [Id(4)] public double Capacity { get; set; } = Capacity;
 }
 
 public enum AgentStatus

@@ -37,6 +37,14 @@ public class TestingMockData
     public static int TeamLeadCapacity =
         (int)Math.Floor(SeniorityDescriptions.First(x => x.Name == TeamLeadSystemName).Capacity * MaxConcurrency);
 
+    public static Dictionary<string, int> SeniorityToCapacity = new()
+    {
+        {JuniorSystemName, JuniorCapacity},
+        {MiddleSystemName, MiddleCapacity},
+        {SeniorSystemName, SeniorCapacity},
+        {TeamLeadSystemName, TeamLeadCapacity},
+    };
+
     public static List<Team> CoreTeams { get; set; } = new()
     {
         new Team("Team A", new Dictionary<string, int>

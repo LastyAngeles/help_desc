@@ -9,7 +9,7 @@ public class TestTimeProvider : ITimeProvider
 
     public DateTime Now()
     {
-        return now.HasValue ? now.Value : DateTime.Now;
+        return now ?? DateTime.Now;
     }
 
     public void SetNow(DateTime? now)

@@ -124,12 +124,13 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             for (var j = 0; j < membersCount; j++)
             {
                 var agentId = SolutionHelper.AgentIdFormatter(teamName, senioritySystemName, j);
+                var agentCapacity = seniorityDescriptions.First(x => x.Name == senioritySystemName).Capacity;
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();
 
                 var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
                     _ => new List<Agent>());
-                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus));
+                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus, agentCapacity));
             }
         }
     }
@@ -200,6 +201,10 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
                 await AssignAgent(sessionId);
         }
     }
+
+    public Task<List<Agent>> GetCoreTeam() => Task.FromResult(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToList());
+
+    public Task<List<Agent>> GetOverflowTeam() => Task.FromResult(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToList());
 
     public async Task ReceiveReminder(string reminderName, TickStatus status)
     {
