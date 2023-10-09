@@ -50,10 +50,9 @@ public class SessionGrain : Grain, ISessionGrain
                             sessionStatus.State = SessionStatus.Dead;
                             await sessionStatus.WriteStateAsync();
 
-                            var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
-                            var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace,
-                                this.GetPrimaryKeyString());
-                            var stream = sp.GetStream<object>(streamId);
+                            var stream = SolutionHelper.GetStream(
+                                this.GetStreamProvider(SolutionConst.StreamProviderName), this.GetPrimaryKeyString(),
+                                SolutionConst.SessionStreamNamespace);
                             await stream.OnNextAsync(new SessionDeadEvent());
 
                             timerDispose.Dispose();

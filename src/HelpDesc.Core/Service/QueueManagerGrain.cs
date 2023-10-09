@@ -121,9 +121,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         if (status == SessionStatus.Dead)
             return false;
 
-        var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
-        var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
-        var stream = sp.GetStream<object>(streamId);
+        var stream = SolutionHelper.GetStream(this.GetStreamProvider(SolutionConst.StreamProviderName), sessionId,
+            SolutionConst.SessionStreamNamespace);
 
         var subs = await stream.SubscribeAsync(async (@event, _) => { await HandleSessionEvents(sessionId, @event); });
 

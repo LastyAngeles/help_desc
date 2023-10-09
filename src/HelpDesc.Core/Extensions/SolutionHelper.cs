@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using Orleans.Runtime;
+using Orleans.Streams;
 
 namespace HelpDesc.Core.Extensions;
 
@@ -44,5 +46,11 @@ public static class SolutionHelper
 
         // Handle the case where the range spans midnight
         return time >= start || time <= end;
+    }
+
+    public static IAsyncStream<object> GetStream(IStreamProvider sp, string sessionId, string streamNamespace)
+    {
+        var streamId = StreamId.Create(streamNamespace, sessionId);
+        return sp.GetStream<object>(streamId);
     }
 }

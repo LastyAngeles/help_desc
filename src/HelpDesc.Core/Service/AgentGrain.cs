@@ -46,7 +46,7 @@ public class AgentGrain : Grain, IAgentGrain
         var sessionIds = agentInfo.State.SessionIds;
 
         //if agent was busy before deactivation, it would not after
-        //later tasks would be re-assigned back to the agent
+        //tasks would be re-assigned back to the agent
         currentStatus = agentInfo.State.Status == AgentStatus.Closing ? agentInfo.State.Status : AgentStatus.Free;
 
         foreach (var sessionId in sessionIds)
@@ -99,9 +99,8 @@ public class AgentGrain : Grain, IAgentGrain
         if (RunningSubscriptions.Count >= agentInfo.State.Capacity)
             return AgentStatus.Overloaded;
 
-        var sp = this.GetStreamProvider(SolutionConst.StreamProviderName);
-        var streamId = StreamId.Create(SolutionConst.SessionStreamNamespace, sessionId);
-        var stream = sp.GetStream<object>(streamId);
+        var stream = SolutionHelper.GetStream(this.GetStreamProvider(SolutionConst.StreamProviderName), sessionId,
+            SolutionConst.SessionStreamNamespace);
 
         var subs = await stream.SubscribeAsync((@event, _) => HandleSessionEvents(sessionId, @event));
 
