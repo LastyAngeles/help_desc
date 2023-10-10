@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace HelpDesc.Core;
 
-public record TeamsConfig
+public class TeamsConfig
 {
     // TODO: split into different config! (Maxim Meshkov 2023-10-09)
     public TimeSpan SessionPollInterval { get; set; }
@@ -21,7 +21,19 @@ public record TeamsConfig
     public Team OverflowTeam { get; set; }
 }
 
-public record SeniorityDescription(string Name, string Description, int Priority, double Capacity);
+public class SeniorityDescription
+{
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public int Priority { get; set; }
+    public double Capacity { get; set; }
+}
 
-/// <param name="Stuff">Seniority system name to the number of members.</param>
-public record Team(string Name, Dictionary<string, int> Stuff, TimeSpan StartWork, TimeSpan EndWork);
+public class Team
+{
+    public string Name { get; init; }
+    /// <summary>Seniority system name to the number of members.</summary>
+    public Dictionary<string, int> Stuff { get; init; }
+    public TimeSpan StartWork { get; init; }
+    public TimeSpan EndWork { get; init; }
+}
