@@ -1,0 +1,30 @@
+
+services:
+  - name: host
+    project: ..\src\HelpDesc.Host\HelpDesc.Host.csproj
+    bindings:
+      - name: http
+        port: 8765
+        protocol: http
+    env:
+      - name: ASPNETCORE_ENVIRONMENT
+        value: Development 
+  - name: core
+    project: ..\src\HelpDesc.Core\HelpDesc.Core.csproj
+    env:
+      - name: DOTNET_ENVIRONMENT
+        value: Development 
+  - name: db
+    image: postgres:14-alpine
+    bindings:
+    - port: 5432
+    volumes:
+    - source: ../.postgres
+      target: /var/lib/postgresql/data
+    env:
+      - name: POSTGRES_PASSWORD
+        value: helpDesc
+      - name: POSTGRES_USER
+        value: helpDesc
+      - name: POSTGRES_DB
+        value: helpDesc

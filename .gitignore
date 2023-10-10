@@ -340,6 +340,5 @@ ASALocalRun/
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
 
-#Jupyter Checkpoints
-*-checkpoint.ipynb
-/.logs/
+#postgres
+.postgres
