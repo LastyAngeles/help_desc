@@ -15,6 +15,7 @@ using HelpDesc.Core.Service.Serialization;
 
 namespace HelpDesc.Core.Service;
 
+[ImplicitStreamSubscription(SolutionConst.QueueManagerStreamNamespace)]
 public class QueueManagerGrain : Grain, IQueueManagerGrain
 {
     private readonly ILogger<QueueManagerGrain> logger;
@@ -33,6 +34,9 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         await base.OnActivateAsync(cancellationToken);
+
+        var stream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.QueueManagerStreamNamespace);
+        await stream.SubscribeAsync((@event, _) => HandleEvents(@event));
 
         var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(this.GetPrimaryKeyString());
 
@@ -74,6 +78,16 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
         queueInfo.State.SessionIds = sessionIds;
         await queueInfo.WriteStateAsync();
+    }
+
+    private async Task HandleEvents(object @event)
+    {
+        switch (@event)
+        {
+            case AllocatePendingSessionEvent _:
+                await AllocatePendingSessions();
+                break;
+        }
     }
 
     public async Task<SessionCreationResult> CreateSession()
@@ -129,43 +143,28 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
         return true;
     }
 
-    public async Task<string> AllocateSinglePendingSession() => await AllocatePendingSessionInner();
-
-    public async Task<List<string>> AllocatePendingSessions()
+    public async Task AllocatePendingSessions()
     {
-        var ret = new List<string>();
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(this.GetPrimaryKeyString());
 
-        foreach (var _ in queueInfo.State.SessionIds)
+        foreach (var sessionId in queueInfo.State.SessionIds)
         {
-            var pendingSessionId = await AllocatePendingSessionInner(false);
-            ret.Add(pendingSessionId);
+            var agent = await agentManager.AssignAgent(sessionId);
+
+            if (agent == null)
+                break;
+
+            if (PendingSubscriptions.TryGetValue(sessionId, out var sessionSub))
+                await sessionSub.UnsubscribeAsync();
+
+            queueInfo.State.SessionIds = queueInfo.State.SessionIds.Remove(sessionId);
         }
 
         await queueInfo.WriteStateAsync();
-
-        return ret;
     }
 
-    public Task<ImmutableList<string>> GetQueuedSessions() => Task.FromResult(queueInfo.State.SessionIds ?? ImmutableList<string>.Empty);
-
-    public async Task<string> AllocatePendingSessionInner(bool writeState = true)
-    {
-        if (!queueInfo.State.SessionIds.Any())
-            //nothing to allocate
-            return null;
-
-        var sessionId = queueInfo.State.SessionIds.First();
-
-        if (PendingSubscriptions.TryGetValue(sessionId, out var sessionSub))
-            await sessionSub.UnsubscribeAsync();
-
-        queueInfo.State.SessionIds = queueInfo.State.SessionIds.Remove(sessionId);
-
-        if (writeState)
-            await queueInfo.WriteStateAsync();
-
-        return sessionId;
-    }
+    public Task<ImmutableList<string>> GetQueuedSessions() =>
+        Task.FromResult(queueInfo.State.SessionIds ?? ImmutableList<string>.Empty);
 
     private async Task HandleSessionEvents(string sessionId, object @event)
     {

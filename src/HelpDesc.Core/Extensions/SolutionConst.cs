@@ -10,6 +10,7 @@ public class SolutionConst
     public const string SessionStreamNamespace = "SessionRoom";
     public const string AgentStreamNamespace = "AgentRoom";
     public const string AgentManagerStreamNamespace = "AgentManagerRoom";
+    public const string QueueManagerStreamNamespace = "QueueManagerRoom";
 
     public const string PrimaryKeySeparator = ".";
     public const string HelpDescStore = "HelpDescStorage";

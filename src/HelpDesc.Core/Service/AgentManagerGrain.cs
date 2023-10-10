@@ -70,7 +70,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
 
         maxQueueCapacityMultiplier = intervals.MaximumQueueCapacityMultiplier;
-        maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
+        maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Capacity).Sum() * maxQueueCapacityMultiplier * intervals.MaximumConcurrency;
 
         //overflow team
         var overflowTeam = teamsConfig.OverflowTeam;
@@ -206,10 +206,12 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             int FindAgentRoundRobin(int priority, string lastAllocatedAgentId)
             {
                 var idx = 0;
-                while (pool[priority][idx].Id == lastAllocatedAgentId)
-                    idx++;
-
-                idx = (idx + 1) % pool[priority].Count;
+                if (lastAllocatedAgentId != null)
+                {
+                    while (pool[priority][idx].Id != lastAllocatedAgentId)
+                        idx++;
+                    idx = (idx + 1) % pool[priority].Count;
+                }
 
                 while (pool[priority][idx].Availability != AgentStatus.Free)
                     idx = (idx + 1) % pool[priority].Count;
@@ -238,10 +240,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
         if (!allBusy)
         {
-            var queueManager = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
-            var sessionId = await queueManager.AllocateSinglePendingSession();
-            if (sessionId != null)
-                await AssignAgent(sessionId);
+            var stream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.QueueManagerStreamNamespace);
+            await stream.OnNextAsync(new AllocatePendingSessionEvent());
         }
     }
 
@@ -298,24 +298,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             await prevAgentGrain.CloseAgent();
         }
 
-        var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
-        var sessionIds = await queueManagerGrain.AllocatePendingSessions();
-
-        foreach (var sessionId in sessionIds)
-        {
-            var agent = await AssignAgent(sessionId);
-            if (agent == null)
-                break;
-
-            sessionIds.Remove(sessionId);
-        }
-
-        if (sessionIds.Any())
-        {
-            // TODO: means, that next team can not handle queue length from prev. team (Maxim Meshkov 2023-10-09)
-            // TODO: find better way for such scenario (Maxim Meshkov 2023-10-09)
-            logger.LogError("Fresh team {TeamName} can not hold the queue from previous team.", nextTeam.Name);
-        }
+        var stream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.QueueManagerStreamNamespace);
+        await stream.OnNextAsync(new AllocatePendingSessionEvent());
 
         var currentTime = timeProvider.Now().TimeOfDay;
         await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime,
