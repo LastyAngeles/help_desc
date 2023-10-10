@@ -24,11 +24,14 @@ public class AgentTest
     public async Task BasicStatusTest()
     {
         var primaryGrainId = Guid.NewGuid().ToString();
+
         var agentId = SolutionHelper.AgentIdFormatter(primaryGrainId, "Team A", JuniorSystemName, 0);
         var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
 
+        var workLoad = await agent.GetCurrentWorkload();
+        workLoad.Should().Be(1);
+
         var status = await agent.GetStatus();
-        
         status.Should().Be(AgentStatus.Free);
     }
 

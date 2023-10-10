@@ -30,6 +30,14 @@ public class AgentManagerTest
         agent.Should().NotBeNull();
         agent.Availability.Should().Be(AgentStatus.Free);
 
+        var currentTeam = await agentManager.GetCurrentTeamName();
+        CoreTeams.Select(x => x.Name).Should().Contain(currentTeam);
+
+        var availableAgents = await agentManager.GetCoreTeam();
+        var busyAgent = availableAgents.Single(x => x.RunningSessions.Any());
+        busyAgent.Id.Should().Be(agent.Id);
+        busyAgent.RunningSessions.Should().Contain(sessionId).And.HaveCount(1);
+
         var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>(sessionId);
         var allocatedAgentId = await sessionGrain.GetAllocatedAgentId();
 
@@ -125,5 +133,22 @@ public class AgentManagerTest
 
         newlyAssignedAgent.Id.Should().Be(agentId);
         newlyAssignedAgent.Availability.Should().Be(AgentStatus.Busy);
+    }
+
+    [Fact]
+    public async Task ShiftTeamsTest()
+    {
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(Guid.NewGuid().ToString());
+        var sessionId = Guid.NewGuid().ToString();
+
+        var currentTeam = await agentManager.GetCurrentTeamName();
+        CoreTeams.Select(x => x.Name).Should().Contain(currentTeam);
+
+        var agent = await agentManager.AssignAgent(sessionId);
+
+        var availableAgents = await agentManager.GetCoreTeam();
+        var busyAgent = availableAgents.Single(x => x.RunningSessions.Any());
+        busyAgent.Id.Should().Be(agent.Id);
+        busyAgent.RunningSessions.Should().Contain(sessionId).And.HaveCount(1);
     }
 }
