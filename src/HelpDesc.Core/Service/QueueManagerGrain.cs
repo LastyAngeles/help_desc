@@ -3,6 +3,7 @@ using HelpDesc.Api.Model;
 using HelpDesc.Api;
 using Orleans;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -144,6 +145,8 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
 
         return ret;
     }
+
+    public Task<ImmutableList<string>> GetQueuedSessions() => Task.FromResult(queueInfo.State.SessionIds ?? ImmutableList<string>.Empty);
 
     public async Task<string> AllocatePendingSessionInner(bool writeState = true)
     {

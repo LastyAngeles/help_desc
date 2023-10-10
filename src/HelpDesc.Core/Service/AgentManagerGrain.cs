@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -202,9 +203,9 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         }
     }
 
-    public Task<List<Agent>> GetCoreTeam() => Task.FromResult(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToList());
+    public Task<ImmutableList<Agent>> GetCoreTeam() => Task.FromResult(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
 
-    public Task<List<Agent>> GetOverflowTeam() => Task.FromResult(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToList());
+    public Task<ImmutableList<Agent>> GetOverflowTeam() => Task.FromResult(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
 
     public async Task ReceiveReminder(string reminderName, TickStatus status)
     {

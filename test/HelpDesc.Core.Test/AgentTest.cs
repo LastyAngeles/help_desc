@@ -44,9 +44,9 @@ public class AgentTest
 
         for (var i = 0; i < capacity; i++)
         {
-            var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{0}");
             agentStatus = await agent.AssignSession($"session.{i}");
             agentStatus.Should().Be(AgentStatus.Free);
+            var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>($"session.{0}");
             var allocatedAgentId = await sessionGrain.GetAllocatedAgentId();
             allocatedAgentId.Should().Be(agentId);
         }
