@@ -1,8 +1,8 @@
-using System;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using HelpDesc.Api;
 using HelpDesc.Api.Model;
+using HelpDesc.Host.Controllers.Model;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Orleans;
@@ -14,7 +14,7 @@ namespace HelpDesc.Host.Controllers;
 public class HelpDescController : ControllerBase
 {
     private const string PrimaryGrainId = "Worker";
-    
+
     private readonly IClusterClient orleansClient;
     private readonly ILogger<HelpDescController> logger;
 
@@ -42,8 +42,8 @@ public class HelpDescController : ControllerBase
             return new SessionCreationResult(sessionId, true);
         }
 
-        var grain = orleansClient.GetGrain<IQueueManagerGrain>(PrimaryGrainId);
-        return await grain.CreateSession();
+        var queueManager = orleansClient.GetGrain<IQueueManagerGrain>(PrimaryGrainId);
+        return await queueManager.CreateSession();
     }
 
     [HttpDelete("session")]
@@ -63,8 +63,8 @@ public class HelpDescController : ControllerBase
     [HttpGet("team/core")]
     public async Task<ImmutableList<Agent>> GetCoreTeam()
     {
-        var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
-        return await queueManager.GetCoreTeam();
+        var agentManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
+        return await agentManager.GetCoreTeam();
     }
 
     [HttpGet("team/overflow")]
@@ -72,5 +72,18 @@ public class HelpDescController : ControllerBase
     {
         var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
         return await queueManager.GetOverflowTeam();
+    }
+
+    [HttpGet("team/overall")]
+    public async Task<TeamDto> GetTeamComposition()
+    {
+        var agentManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
+
+        var coreTeam = await agentManager.GetCoreTeam();
+        var overflowTeam = await agentManager.GetOverflowTeam();
+        var currentTeamName = await agentManager.GetCurrentTeamName();
+        var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
+
+        return new TeamDto(coreTeam, overflowTeam, currentTeamName, maxQueueCapacity);
     }
 }
