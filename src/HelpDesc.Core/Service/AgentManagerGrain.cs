@@ -21,6 +21,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
     private readonly ITimeProvider timeProvider;
     private readonly ILogger<AgentManagerGrain> logger;
     private readonly TeamsConfig teamsConfig;
+    private readonly Intervals intervals;
 
     //priority => agent
     private Dictionary<int, List<Agent>> CoreAgentPool { get; } = new();
@@ -40,13 +41,13 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
     private const string TeamShiftReminderName = "teamShift";
 
-    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, ITimeProvider timeProvider,
+    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, IOptions<Intervals> intervalsOptions, ITimeProvider timeProvider,
         ILogger<AgentManagerGrain> logger)
     {
         this.timeProvider = timeProvider;
-
-        this.logger = logger;
         teamsConfig = teamConfigOptions.Value;
+        intervals = intervalsOptions.Value;
+        this.logger = logger;
     }
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -67,7 +68,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         //core team
         await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
 
-        maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
+        maxQueueCapacityMultiplier = intervals.MaximumQueueCapacityMultiplier;
         maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
 
         //overflow team
@@ -150,7 +151,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             {
                 var agentId =
                     SolutionHelper.AgentIdFormatter(this.GetPrimaryKeyString(), teamName, senioritySystemName, j);
-                var maximumConcurrency = teamsConfig.MaximumConcurrency;
+                var maximumConcurrency = intervals.MaximumConcurrency;
                 var agentCapacity = seniorityDescriptions.First(x => x.Name == senioritySystemName).Capacity;
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();

@@ -5,20 +5,17 @@ namespace HelpDesc.Core;
 
 public class TeamsConfig
 {
-    // TODO: split into different config! (Maxim Meshkov 2023-10-09)
-    public TimeSpan SessionPollInterval { get; set; }
-
-    public int MaxMissingPolls { get; set; }
-
-    public int MaximumConcurrency { get; set; }
-
-    public double MaximumQueueCapacityMultiplier { get; set; }
-
     public List<SeniorityDescription> SeniorityDescriptions { get; set; }
-
     public List<Team> CoreTeams { get; set; }
-
     public Team OverflowTeam { get; set; }
+}
+
+public class Intervals
+{
+    public TimeSpan SessionPollInterval { get; set; }
+    public int MaxMissingPolls { get; set; }
+    public int MaximumConcurrency { get; set; }
+    public double MaximumQueueCapacityMultiplier { get; set; }
 }
 
 public class SeniorityDescription
@@ -31,9 +28,9 @@ public class SeniorityDescription
 
 public class Team
 {
-    public string Name { get; init; }
+    public string Name { get; set; }
     /// <summary>Seniority system name to the number of members.</summary>
-    public Dictionary<string, int> Stuff { get; init; }
-    public TimeSpan StartWork { get; init; }
-    public TimeSpan EndWork { get; init; }
+    public Dictionary<string, int> Stuff { get; set; }
+    public TimeSpan StartWork { get; set; }
+    public TimeSpan EndWork { get; set; }
 }

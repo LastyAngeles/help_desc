@@ -15,7 +15,7 @@ namespace HelpDesc.Core.Service;
 
 public class SessionGrain : Grain, ISessionGrain
 {
-    private readonly TeamsConfig config;
+    private readonly Intervals intervals;
     private readonly IPersistentState<SessionInfo> sessionInfo;
     private readonly ILogger<SessionGrain> logger;
     private IDisposable timerDispose;
@@ -23,12 +23,12 @@ public class SessionGrain : Grain, ISessionGrain
 
     private (string agentId, StreamSubscriptionHandle<object> sub) agentSubs;
 
-    public SessionGrain(IOptions<TeamsConfig> config,
+    public SessionGrain(IOptions<Intervals> intervalsOptions,
         [PersistentState("sessions", SolutionConst.HelpDescStore)]
         IPersistentState<SessionInfo> sessionInfo,
         ILogger<SessionGrain> logger)
     {
-        this.config = config.Value;
+        intervals = intervalsOptions.Value;
         this.sessionInfo = sessionInfo;
         this.logger = logger;
     }
@@ -49,8 +49,8 @@ public class SessionGrain : Grain, ISessionGrain
                 agentSubs = (sessionInfo.State.AllocatedAgentId, sub);
             }
 
-            timerDispose = RegisterTimer(_ => TimerTick(), null, config.SessionPollInterval,
-                config.SessionPollInterval);
+            timerDispose = RegisterTimer(_ => TimerTick(), null, intervals.SessionPollInterval,
+                intervals.SessionPollInterval);
         }
 
         async Task TimerTick()
@@ -62,7 +62,7 @@ public class SessionGrain : Grain, ISessionGrain
                 if (sessionInfo.State.Status == SessionStatus.Disconnected)
                 {
                     missingPollCount++;
-                    if (missingPollCount >= config.MaxMissingPolls)
+                    if (missingPollCount >= intervals.MaxMissingPolls)
                     {
                         sessionInfo.State.Status = SessionStatus.Dead;
                         sessionInfo.State.AllocatedAgentId = null;

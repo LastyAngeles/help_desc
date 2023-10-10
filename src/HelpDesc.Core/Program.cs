@@ -13,6 +13,7 @@ await Host.CreateDefaultBuilder(args)
     {
         var config = context.Configuration;
         services.Configure<TeamsConfig>(config.GetSection("TeamsConfig"));
+        services.Configure<Intervals>(config.GetSection("Intervals"));
         services.Configure<OrleansPersistence>(config.GetSection("Orleans").GetSection("Persistence"));
         services.AddSingleton<ITimeProvider, TimeProvider>();
 

@@ -17,7 +17,8 @@ namespace HelpDesc.Core.Service;
 
 public class AgentGrain : Grain, IAgentGrain
 {
-    private readonly IOptions<TeamsConfig> teamConfig;
+    private readonly TeamsConfig teamConfig;
+    private readonly Intervals intervals;
     private readonly IPersistentState<AgentInfo> agentInfo;
 
     //sessionId => subscription
@@ -25,11 +26,12 @@ public class AgentGrain : Grain, IAgentGrain
 
     private AgentStatus currentStatus;
 
-    public AgentGrain(IOptions<TeamsConfig> teamConfig,
+    public AgentGrain(IOptions<TeamsConfig> teamConfigOptions, IOptions<Intervals> intervalsOptions,
         [PersistentState("agentsInfo", SolutionConst.HelpDescStore)]
         IPersistentState<AgentInfo> agentInfo)
     {
-        this.teamConfig = teamConfig;
+        teamConfig = teamConfigOptions.Value;
+        intervals = intervalsOptions.Value;
         this.agentInfo = agentInfo;
     }
 
@@ -74,9 +76,9 @@ public class AgentGrain : Grain, IAgentGrain
     private int GetMaxCapacity()
     {
         var seniority = SolutionHelper.GetAgentSeniority(this.GetPrimaryKeyString());
-        var maximumConcurrency = teamConfig.Value.MaximumConcurrency;
+        var maximumConcurrency = intervals.MaximumConcurrency;
 
-        var seniorityDescription = teamConfig.Value.SeniorityDescriptions.FirstOrDefault(x => x.Name == seniority);
+        var seniorityDescription = teamConfig.SeniorityDescriptions.FirstOrDefault(x => x.Name == seniority);
 
         return (int)Math.Floor(seniorityDescription!.Capacity * maximumConcurrency);
     }

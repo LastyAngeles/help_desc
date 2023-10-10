@@ -42,14 +42,19 @@ public class TestSiloConfigurations : ISiloConfigurator
         {
             services.AddSingleton<TestTimeProvider>();
             services.AddSingleton<ITimeProvider, TestTimeProvider>(sp => sp.GetRequiredService<TestTimeProvider>());
-            services.Configure<TeamsConfig>(teamsConfig => {
+            services.Configure<Intervals>(conf =>
+            {
+                conf.MaximumQueueCapacityMultiplier = MaxQueueCapacityMultiplier;
+                conf.MaximumConcurrency = MaxConcurrency;
+                conf.MaxMissingPolls = MaxMissingPolls;
+                conf.SessionPollInterval = PollInterval;
+            });
+
+            services.Configure<TeamsConfig>(teamsConfig =>
+            {
                 teamsConfig.CoreTeams = CoreTeams;
                 teamsConfig.OverflowTeam = OverflowTeam;
-                teamsConfig.MaximumQueueCapacityMultiplier = MaxQueueCapacityMultiplier;
-                teamsConfig.MaximumConcurrency = MaxConcurrency;
                 teamsConfig.SeniorityDescriptions = SeniorityDescriptions;
-                teamsConfig.MaxMissingPolls = MaxMissingPolls;
-                teamsConfig.SessionPollInterval = PollInterval;
             });
         });
     }
