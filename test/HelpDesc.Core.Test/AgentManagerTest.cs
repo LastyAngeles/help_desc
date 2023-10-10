@@ -53,7 +53,7 @@ public class AgentManagerTest
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
-        var maxCoreCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+        var maxCoreCapacity = coreTeam.Select(x => x.MaxCapacity).Sum();
 
         for (var i = 0; i < maxCoreCapacity; i++)
             await agentManager.AssignAgent($"{sessionId}.core.{i}");
@@ -63,7 +63,7 @@ public class AgentManagerTest
 
         var overflowAgent = await agentManager.AssignAgent($"{sessionId}.overflow.{100}");
 
-        overflowTeam.Should().Contain(overflowAgent);
+        overflowTeam.Select(x => x.Id).Should().Contain(overflowAgent.Id);
     }
 
     [Fact]
@@ -75,8 +75,8 @@ public class AgentManagerTest
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
-        var maxCoreCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
-        var maxOverflowCapacity = overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+        var maxCoreCapacity = coreTeam.Select(x => x.MaxCapacity).Sum();
+        var maxOverflowCapacity = overflowTeam.Select(x => x.MaxCapacity).Sum();
 
         for (var i = 0; i < maxCoreCapacity; i++)
             await agentManager.AssignAgent($"{sessionId}.core.{i}");
@@ -108,8 +108,8 @@ public class AgentManagerTest
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
-        var maxCoreCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
-        var maxOverflowCapacity = overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)).Sum();
+        var maxCoreCapacity = coreTeam.Select(x => x.MaxCapacity).Sum();
+        var maxOverflowCapacity = overflowTeam.Select(x => x.MaxCapacity).Sum();
 
         for (var i = 0; i < maxCoreCapacity; i++)
             await agentManager.AssignAgent($"{sessionId}.core.{i}");

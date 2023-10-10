@@ -29,7 +29,7 @@ public class AgentTest
         var agent = cluster.GrainFactory.GetGrain<IAgentGrain>(agentId);
 
         var workLoad = await agent.GetCurrentWorkload();
-        workLoad.Should().Be(1);
+        workLoad.Should().Be(0);
 
         var status = await agent.GetStatus();
         status.Should().Be(AgentStatus.Free);

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
@@ -150,6 +151,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
             {
                 var agentId =
                     SolutionHelper.AgentIdFormatter(this.GetPrimaryKeyString(), teamName, senioritySystemName, j);
+                var maximumConcurrency = teamsConfig.MaximumConcurrency;
                 var agentCapacity = seniorityDescriptions.First(x => x.Name == senioritySystemName).Capacity;
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();
@@ -157,7 +159,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
                 var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
                     _ => new List<Agent>());
                 ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus,
-                    agentCapacity));
+                    agentCapacity, (int)Math.Floor(agentCapacity * maximumConcurrency)));
             }
         }
     }
@@ -242,6 +244,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agent.Id);
         var runningSessions = await agentGrain.GetCurrentSessionIds();
         var currentWorkLoad = await agentGrain.GetCurrentWorkload();
+
         return agent with { Workload = currentWorkLoad, RunningSessions = runningSessions };
     }
 

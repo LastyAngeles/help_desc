@@ -40,8 +40,8 @@ public class SessionQueueManagerTest
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
-        var maxCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency))
-            .Concat(overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)))
+        var maxCapacity = coreTeam.Select(x => x.MaxCapacity)
+            .Concat(overflowTeam.Select(x => x.MaxCapacity))
             .Sum();
 
         var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(primaryGrainId);
@@ -79,8 +79,8 @@ public class SessionQueueManagerTest
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
-        var maxAgentCapacity = coreTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency))
-            .Concat(overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)))
+        var maxAgentCapacity = coreTeam.Select(x => x.MaxCapacity)
+            .Concat(overflowTeam.Select(x => x.MaxCapacity))
             .Sum();
 
         var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(primaryGrainId);
