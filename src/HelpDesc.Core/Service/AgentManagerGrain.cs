@@ -41,7 +41,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
     private const string TeamShiftReminderName = "teamShift";
 
-    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, IOptions<Intervals> intervalsOptions, ITimeProvider timeProvider,
+    public AgentManagerGrain(IOptions<TeamsConfig> teamConfigOptions, IOptions<Intervals> intervalsOptions,
+        ITimeProvider timeProvider,
         ILogger<AgentManagerGrain> logger)
     {
         this.timeProvider = timeProvider;
@@ -178,16 +179,16 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         {
             foreach (var priority in pool.Keys)
             {
-                var availableAgents = pool[priority].Where(x => x.Availability == AgentStatus.Free).ToList();
+                var availableAgents = pool[priority].Any(x => x.Availability == AgentStatus.Free);
 
-                if (!availableAgents.Any())
+                if (!availableAgents)
                     continue;
 
                 roundRobinMap.TryGetValue(priority, out var lastAllocatedAgentId);
 
-                var assignedAgent = availableAgents.Count == 1
-                    ? availableAgents.Single()
-                    : availableAgents.FirstOrDefault(x => x.Id != lastAllocatedAgentId) ?? availableAgents.First();
+                var idx = FindAgentRoundRobin(priority, lastAllocatedAgentId);
+
+                var assignedAgent = pool[priority][idx];
 
                 var updatedAgentStatus =
                     await GrainFactory.GetGrain<IAgentGrain>(assignedAgent.Id).AssignSession(sessionId);
@@ -201,6 +202,19 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
             //no available agents found
             return null;
+
+            int FindAgentRoundRobin(int priority, string lastAllocatedAgentId)
+            {
+                var idx = 0;
+                while (pool[priority][idx].Id == lastAllocatedAgentId)
+                    idx++;
+
+                idx = (idx + 1) % pool[priority].Count;
+
+                while (pool[priority][idx].Availability != AgentStatus.Free)
+                    idx = (idx + 1) % pool[priority].Count;
+                return idx;
+            }
         }
     }
 
