@@ -14,10 +14,10 @@ public class TestingMockData
 
     public static List<SeniorityDescription> SeniorityDescriptions { get; set; } = new()
     {
-        new SeniorityDescription(JuniorSystemName, "Junior", 1, 0.4),
-        new SeniorityDescription(MiddleSystemName, "Middle", 2, 0.6),
-        new SeniorityDescription(SeniorSystemName, "Senior", 3, 0.8),
-        new SeniorityDescription(TeamLeadSystemName, "Team-Lead", 4, 0.5)
+        new SeniorityDescription { Name = JuniorSystemName, Capacity = 0.4, Priority = 1, Description = "Junior" },
+        new SeniorityDescription { Name = MiddleSystemName, Capacity = 0.6, Priority = 2, Description = "Middle" },
+        new SeniorityDescription { Name = SeniorSystemName, Capacity = 0.8, Priority = 3, Description = "Senior" },
+        new SeniorityDescription { Name = TeamLeadSystemName, Capacity = 0.5, Priority = 4, Description = "Team-Lead" }
     };
 
     public const string JuniorSystemName = "jnr";
@@ -39,36 +39,59 @@ public class TestingMockData
 
     public static Dictionary<string, int> SeniorityToCapacity = new()
     {
-        {JuniorSystemName, JuniorCapacity},
-        {MiddleSystemName, MiddleCapacity},
-        {SeniorSystemName, SeniorCapacity},
-        {TeamLeadSystemName, TeamLeadCapacity},
+        { JuniorSystemName, JuniorCapacity },
+        { MiddleSystemName, MiddleCapacity },
+        { SeniorSystemName, SeniorCapacity },
+        { TeamLeadSystemName, TeamLeadCapacity },
     };
 
     public static List<Team> CoreTeams { get; set; } = new()
     {
-        new Team("Team A", new Dictionary<string, int>
+        new Team
         {
-            { JuniorSystemName, 1 },
-            { MiddleSystemName, 2 },
-            { TeamLeadSystemName, 1 }
-        }, TimeSpan.Parse("00:00:00"), TimeSpan.Parse("08:00:00")),
-
-        new Team("Team B", new Dictionary<string, int>
+            Name = "Team A",
+            Stuff = new Dictionary<string, int>
+            {
+                { JuniorSystemName, 1 },
+                { MiddleSystemName, 2 },
+                { TeamLeadSystemName, 1 }
+            },
+            StartWork = TimeSpan.Parse("00:00:00"),
+            EndWork = TimeSpan.Parse("08:00:00")
+        },
+        new Team
         {
-            { JuniorSystemName, 2 },
-            { MiddleSystemName, 1 },
-            { SeniorSystemName, 1 }
-        }, TimeSpan.Parse("08:00:00"), TimeSpan.Parse("16:00:00")),
-
-        new Team("Team C", new Dictionary<string, int>
+            Name = "Team B",
+            Stuff = new Dictionary<string, int>
+            {
+                { JuniorSystemName, 2 },
+                { MiddleSystemName, 1 },
+                { SeniorSystemName, 1 }
+            },
+            StartWork = TimeSpan.Parse("08:00:00"),
+            EndWork = TimeSpan.Parse("16:00:00")
+        },
+        new Team
         {
-            { MiddleSystemName, 2 }
-        }, TimeSpan.Parse("08:00:00"), TimeSpan.Parse("24:00:00")),
+            Name = "Team C",
+            Stuff = new Dictionary<string, int>
+            {
+                { MiddleSystemName, 2 }
+            },
+            StartWork = TimeSpan.Parse("08:00:00"),
+            EndWork = TimeSpan.Parse("24:00:00")
+        }
     };
 
-    public static Team OverflowTeam { get; set; } = new("Overflow", new Dictionary<string, int>
-    {
-        { JuniorSystemName, 6 }
-    }, TimeSpan.Parse("00:00:00"), TimeSpan.Parse("24:00:00"));
+    public static Team OverflowTeam { get; set; } =
+        new()
+        {
+            Name = "Overflow",
+            Stuff = new Dictionary<string, int>
+            {
+                { JuniorSystemName, 6 }
+            },
+            StartWork = TimeSpan.Parse("00:00:00"),
+            EndWork = TimeSpan.Parse("24:00:00")
+        };
 }

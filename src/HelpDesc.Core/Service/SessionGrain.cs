@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 using System.Threading.Tasks;
 using HelpDesc.Api;
@@ -45,8 +44,7 @@ public class SessionGrain : Grain, ISessionGrain
         {
             if (!string.IsNullOrEmpty(sessionInfo.State.AllocatedAgentId))
             {
-                var agentStream =
-                    this.GetStream(sessionInfo.State.AllocatedAgentId, SolutionConst.AgentStreamNamespace);
+                var agentStream = this.GetStream(sessionInfo.State.AllocatedAgentId, SolutionConst.AgentStreamNamespace);
                 var sub = await agentStream.SubscribeAsync((@event,_) => HandleAgentEvents(@event));
                 agentSubs = (sessionInfo.State.AllocatedAgentId, sub);
             }

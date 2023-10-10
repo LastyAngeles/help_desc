@@ -170,9 +170,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     private async Task HandleSessionEvents(string sessionId, object @event)
     {
         if (@event is SessionDeadEvent _)
-        {
             await RemoveSession(sessionId);
-        }
     }
 
     private async Task RemoveSession(string sessionId)
