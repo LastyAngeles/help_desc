@@ -3,12 +3,20 @@
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" />
 		<PackageReference Include="Swashbuckle.AspNetCore" />
 
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="Microsoft.Orleans.Client" />
 		<PackageReference Include="Microsoft.Orleans.Streaming" />
+		<PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" />
+		<PackageReference Include="Npgsql" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\HelpDesc.Api\HelpDesc.Api.csproj" />
-		<ProjectReference Include="..\HelpDesc.Core\HelpDesc.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Update="appsettings.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 </Project>
