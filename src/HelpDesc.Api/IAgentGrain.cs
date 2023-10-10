@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Threading.Tasks;
 using HelpDesc.Api.Model;
 using Orleans;
@@ -12,4 +11,5 @@ public interface IAgentGrain : IGrainWithStringKey
     Task<AgentStatus> GetStatus();
     Task CloseAgent();
     Task<ImmutableList<string>> GetCurrentSessionIds();
+    Task<int> GetCurrentWorkload();
 }

@@ -27,6 +27,8 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
     //all agents together
     private List<Agent> AgentsPool { get; set; }
 
+    private string currentTeamName;
+
     //priority => last allocated id (for round robin)
     private Dictionary<int, string> CorePriorityRoundRobinMap { get; } = new();
     private Dictionary<int, string> OverflowPriorityRoundRobinMap { get; } = new();
@@ -53,15 +55,18 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         if (currentTeam == null)
             return;
 
+        currentTeamName = currentTeam.Name;
+
         var agentManagerStream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.AgentManagerStreamNamespace);
         // TODO: when to unsubscribe? (Maxim Meshkov 2023-10-10)
-        /*agentManagerSubscription = */await agentManagerStream.SubscribeAsync((@event, _) => HandleAgentStream(@event));
+        /*agentManagerSubscription = */
+        await agentManagerStream.SubscribeAsync((@event, _) => HandleAgentStream(@event));
 
         var currentTeamStuff = currentTeam.Stuff;
 
         //core team
         await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
-        
+
         maxQueueCapacityMultiplier = teamsConfig.MaximumQueueCapacityMultiplier;
         maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
 
@@ -143,14 +148,16 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
             for (var j = 0; j < membersCount; j++)
             {
-                var agentId = SolutionHelper.AgentIdFormatter(this.GetPrimaryKeyString(), teamName, senioritySystemName, j);
+                var agentId =
+                    SolutionHelper.AgentIdFormatter(this.GetPrimaryKeyString(), teamName, senioritySystemName, j);
                 var agentCapacity = seniorityDescriptions.First(x => x.Name == senioritySystemName).Capacity;
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();
 
                 var ret = agentPool.GetOrAdd(seniorityDescription.Priority,
                     _ => new List<Agent>());
-                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus, agentCapacity));
+                ret.Add(new Agent(agentId, senioritySystemName, seniorityDescription.Priority, agentStatus,
+                    agentCapacity));
             }
         }
     }
@@ -187,7 +194,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
                 roundRobinMap[priority] = assignedAgent.Id;
 
-                return assignedAgent;
+                return await EnrichAgent(assignedAgent);
             }
 
             //no available agents found
@@ -222,51 +229,76 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         }
     }
 
-    public Task<ImmutableList<Agent>> GetCoreTeam() => Task.FromResult(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+    public Task<string> GetCurrentTeamName() => Task.FromResult(currentTeamName);
 
-    public Task<ImmutableList<Agent>> GetOverflowTeam() => Task.FromResult(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+    public async Task<ImmutableList<Agent>> GetCoreTeam() => await EnrichAgents(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+
+    public async Task<ImmutableList<Agent>> GetOverflowTeam() => await EnrichAgents(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+
+    private async Task<ImmutableList<Agent>> EnrichAgents(ImmutableList<Agent> agents) => (await Task.WhenAll(agents.Select(EnrichAgent))).ToImmutableList();
+
+    private async Task<Agent> EnrichAgent(Agent agent)
+    {
+        var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agent.Id);
+        var runningSessions = await agentGrain.GetCurrentSessionIds();
+        var currentWorkLoad = await agentGrain.GetCurrentWorkload();
+        return agent with { Workload = currentWorkLoad, RunningSessions = runningSessions };
+    }
+
+    public async Task ForceShift()
+    {
+        await ForceShiftInner();
+    }
 
     public async Task ReceiveReminder(string reminderName, TickStatus status)
     {
         if (reminderName == TeamShiftReminderName)
+            await ForceShiftInner();
+    }
+
+    private async Task ForceShiftInner()
+    {
+        var prevAgentIds = CoreAgentPool.Values.SelectMany(x => x).Select(x => x.Id);
+
+        var nextTeam = AllocateCurrentTeam();
+        if (nextTeam == null)
+            return;
+
+        currentTeamName = nextTeam.Name;
+        await PopulateTeam(nextTeam.Stuff, CoreAgentPool, nextTeam.Name);
+
+        maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
+
+        CorePriorityRoundRobinMap.Clear();
+        AgentsPool = CombineAgentPools();
+
+        foreach (var prevAgentId in prevAgentIds)
         {
-            var prevAgentIds = CoreAgentPool.Values.SelectMany(x => x).Select(x => x.Id);
-
-            var nextTeam = AllocateCurrentTeam();
-            await PopulateTeam(nextTeam.Stuff, CoreAgentPool, nextTeam.Name);
-
-            maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Count).Sum() * maxQueueCapacityMultiplier;
-
-            CorePriorityRoundRobinMap.Clear();
-            AgentsPool = CombineAgentPools();
-
-            foreach (var prevAgentId in prevAgentIds)
-            {
-                var prevAgentGrain = GrainFactory.GetGrain<IAgentGrain>(prevAgentId);
-                await prevAgentGrain.CloseAgent();
-            }
-
-            var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
-            var sessionIds = await queueManagerGrain.AllocatePendingSessions();
-
-            foreach (var sessionId in sessionIds)
-            {
-                var agent = await AssignAgent(sessionId);
-                if (agent == null)
-                    break;
-
-                sessionIds.Remove(sessionId);
-            }
-
-            if (sessionIds.Any())
-            {
-                // TODO: means, that next team can not handle queue length from prev. team (Maxim Meshkov 2023-10-09)
-                // TODO: find better way for such scenario (Maxim Meshkov 2023-10-09)
-                logger.LogError("Fresh team {TeamName} can not hold the queue from previous team.", nextTeam.Name);
-            }
-
-            var currentTime = timeProvider.Now().TimeOfDay;
-            await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime, SolutionConst.ReminderPeriod);
+            var prevAgentGrain = GrainFactory.GetGrain<IAgentGrain>(prevAgentId);
+            await prevAgentGrain.CloseAgent();
         }
+
+        var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
+        var sessionIds = await queueManagerGrain.AllocatePendingSessions();
+
+        foreach (var sessionId in sessionIds)
+        {
+            var agent = await AssignAgent(sessionId);
+            if (agent == null)
+                break;
+
+            sessionIds.Remove(sessionId);
+        }
+
+        if (sessionIds.Any())
+        {
+            // TODO: means, that next team can not handle queue length from prev. team (Maxim Meshkov 2023-10-09)
+            // TODO: find better way for such scenario (Maxim Meshkov 2023-10-09)
+            logger.LogError("Fresh team {TeamName} can not hold the queue from previous team.", nextTeam.Name);
+        }
+
+        var currentTime = timeProvider.Now().TimeOfDay;
+        await this.RegisterOrUpdateReminder(TeamShiftReminderName, nextTeam.EndWork - currentTime,
+            SolutionConst.ReminderPeriod);
     }
 }

@@ -11,4 +11,6 @@ public interface IAgentManagerGrain: IGrainWithStringKey
     Task<double> GetMaxQueueCapacity();
     Task<ImmutableList<Agent>> GetCoreTeam();
     Task<ImmutableList<Agent>> GetOverflowTeam();
+    Task<string> GetCurrentTeamName();
+    Task ForceShift();
 }
