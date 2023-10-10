@@ -15,6 +15,7 @@ using Orleans.Streams;
 
 namespace HelpDesc.Core.Service;
 
+[ImplicitStreamSubscription(SolutionConst.AgentManagerStreamNamespace)]
 public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 {
     private readonly ITimeProvider timeProvider;
@@ -59,8 +60,6 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         currentTeamName = currentTeam.Name;
 
         var agentManagerStream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.AgentManagerStreamNamespace);
-        // TODO: when to unsubscribe? (Maxim Meshkov 2023-10-10)
-        /*agentManagerSubscription = */
         await agentManagerStream.SubscribeAsync((@event, _) => HandleAgentStream(@event));
 
         var currentTeamStuff = currentTeam.Stuff;
@@ -233,11 +232,14 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
     public Task<string> GetCurrentTeamName() => Task.FromResult(currentTeamName);
 
-    public async Task<ImmutableList<Agent>> GetCoreTeam() => await EnrichAgents(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+    public async Task<ImmutableList<Agent>> GetCoreTeam() =>
+        await EnrichAgents(CoreAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
 
-    public async Task<ImmutableList<Agent>> GetOverflowTeam() => await EnrichAgents(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
+    public async Task<ImmutableList<Agent>> GetOverflowTeam() =>
+        await EnrichAgents(OverflowAgentPool.Values.SelectMany(x => x).Select(x => x).ToImmutableList());
 
-    private async Task<ImmutableList<Agent>> EnrichAgents(ImmutableList<Agent> agents) => (await Task.WhenAll(agents.Select(EnrichAgent))).ToImmutableList();
+    private async Task<ImmutableList<Agent>> EnrichAgents(ImmutableList<Agent> agents) =>
+        (await Task.WhenAll(agents.Select(EnrichAgent))).ToImmutableList();
 
     private async Task<Agent> EnrichAgent(Agent agent)
     {
