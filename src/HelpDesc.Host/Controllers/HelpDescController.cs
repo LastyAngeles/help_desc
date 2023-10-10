@@ -1,9 +1,7 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using HelpDesc.Api;
 using HelpDesc.Api.Model;
-using HelpDesc.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Orleans;
