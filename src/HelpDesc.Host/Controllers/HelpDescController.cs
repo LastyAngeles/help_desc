@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using HelpDesc.Api;
@@ -12,6 +13,8 @@ namespace HelpDesc.Host.Controllers;
 [Route("api/helpdesc")]
 public class HelpDescController : ControllerBase
 {
+    private const string PrimaryGrainId = "Worker";
+    
     private readonly IClusterClient orleansClient;
     private readonly ILogger<HelpDescController> logger;
 
@@ -39,7 +42,7 @@ public class HelpDescController : ControllerBase
             return new SessionCreationResult(sessionId, true);
         }
 
-        var grain = orleansClient.GetGrain<IQueueManagerGrain>(0);
+        var grain = orleansClient.GetGrain<IQueueManagerGrain>(PrimaryGrainId);
         return await grain.CreateSession();
     }
 
@@ -53,21 +56,21 @@ public class HelpDescController : ControllerBase
     [HttpGet("sessions")]
     public async Task<ImmutableList<string>> GetQueuedSessions()
     {
-        var queueManager = orleansClient.GetGrain<IQueueManagerGrain>(0);
+        var queueManager = orleansClient.GetGrain<IQueueManagerGrain>(PrimaryGrainId);
         return await queueManager.GetQueuedSessions();
     }
 
     [HttpGet("team/core")]
     public async Task<ImmutableList<Agent>> GetCoreTeam()
     {
-        var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(0);
+        var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
         return await queueManager.GetCoreTeam();
     }
 
     [HttpGet("team/overflow")]
     public async Task<ImmutableList<Agent>> GetOverflowTeam()
     {
-        var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(0);
+        var queueManager = orleansClient.GetGrain<IAgentManagerGrain>(PrimaryGrainId);
         return await queueManager.GetOverflowTeam();
     }
 }

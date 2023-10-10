@@ -6,7 +6,7 @@ using Orleans;
 
 namespace HelpDesc.Api;
 
-public interface IQueueManagerGrain : IGrainWithIntegerKey
+public interface IQueueManagerGrain : IGrainWithStringKey
 {
     Task<SessionCreationResult> CreateSession();
     Task<string> AllocateSinglePendingSession();

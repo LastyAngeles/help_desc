@@ -34,7 +34,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     {
         await base.OnActivateAsync(cancellationToken);
 
-        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(this.GetPrimaryKeyString());
 
         var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 
@@ -80,7 +80,7 @@ public class QueueManagerGrain : Grain, IQueueManagerGrain
     {
         var sessionId = Guid.NewGuid().ToString();
 
-        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(this.GetPrimaryKeyString());
         // TODO: cache this value properly (Maxim Meshkov 2023-10-09)
         var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
 

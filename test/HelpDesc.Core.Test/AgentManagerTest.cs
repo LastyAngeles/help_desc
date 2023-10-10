@@ -23,8 +23,8 @@ public class AgentManagerTest
     [Fact]
     public async Task BasicSessionAllocationTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
-        const string sessionId = "sessionId";
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(Guid.NewGuid().ToString());
+        var sessionId = Guid.NewGuid().ToString();
 
         var agent = await agentManager.AssignAgent(sessionId);
         agent.Should().NotBeNull();
@@ -39,8 +39,8 @@ public class AgentManagerTest
     [Fact]
     public async Task TeamOverloadTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
-        const string sessionId = "sessionId";
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(Guid.NewGuid().ToString());
+        var sessionId = Guid.NewGuid().ToString();
 
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
@@ -61,8 +61,8 @@ public class AgentManagerTest
     [Fact]
     public async Task SessionRequestNotAllocatedAfterOverloadTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
-        const string sessionId = "sessionId";
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(Guid.NewGuid().ToString());
+        var sessionId = Guid.NewGuid().ToString();
 
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
@@ -94,8 +94,8 @@ public class AgentManagerTest
     [Fact]
     public async Task AllocateSessionAfterAgentBecameFreeTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
-        const string sessionId = "sessionId";
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(Guid.NewGuid().ToString());
+        var sessionId = Guid.NewGuid().ToString();
 
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();

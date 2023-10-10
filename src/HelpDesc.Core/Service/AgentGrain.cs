@@ -151,7 +151,7 @@ public class AgentGrain : Grain, IAgentGrain
                 agentInfo.State.Status = currentStatus;
                 await agentInfo.WriteStateAsync();
 
-                var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(0);
+                var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(SolutionHelper.GetGrainIdFromAgentPrimary(this.GetPrimaryKeyString()));
                 await agentManager.ChangeAgentStatus(this.GetPrimaryKeyString(), currentStatus);
             }
         }

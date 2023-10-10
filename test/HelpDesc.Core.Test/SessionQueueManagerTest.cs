@@ -23,7 +23,7 @@ public class SessionQueueManagerTest
     [Fact]
     public async Task BasicCreateSessionTest()
     {
-        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(0);
+        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(Guid.NewGuid().ToString());
 
         var response = await queueManager.CreateSession();
 
@@ -35,7 +35,8 @@ public class SessionQueueManagerTest
     [Fact]
     public async Task RequestedSessionOverCapacityNotCreatedTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(1);
+        var primaryGrainId = Guid.NewGuid().ToString();
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(primaryGrainId);
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
@@ -43,7 +44,7 @@ public class SessionQueueManagerTest
             .Concat(overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)))
             .Sum();
 
-        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(2);
+        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(primaryGrainId);
 
         for (var i = 0; i < maxCapacity; i++)
         {
@@ -73,7 +74,8 @@ public class SessionQueueManagerTest
     [Fact]
     public async Task PullFromQueueAfterDisconnectTest()
     {
-        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(0);
+        var primaryGrainId = Guid.NewGuid().ToString();
+        var agentManager = cluster.GrainFactory.GetGrain<IAgentManagerGrain>(primaryGrainId);
         var coreTeam = await agentManager.GetCoreTeam();
         var overflowTeam = await agentManager.GetOverflowTeam();
 
@@ -81,7 +83,7 @@ public class SessionQueueManagerTest
             .Concat(overflowTeam.Select(x => (int)Math.Floor(x.Capacity * MaxConcurrency)))
             .Sum();
 
-        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(0);
+        var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(primaryGrainId);
 
         for (var i = 0; i < maxAgentCapacity; i++)
             await queueManager.CreateSession();

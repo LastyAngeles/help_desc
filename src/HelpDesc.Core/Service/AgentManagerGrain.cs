@@ -124,7 +124,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
             for (var j = 0; j < membersCount; j++)
             {
-                var agentId = SolutionHelper.AgentIdFormatter(teamName, senioritySystemName, j);
+                var agentId = SolutionHelper.AgentIdFormatter(this.GetPrimaryKeyString(), teamName, senioritySystemName, j);
                 var agentCapacity = seniorityDescriptions.First(x => x.Name == senioritySystemName).Capacity;
                 var agentGrain = GrainFactory.GetGrain<IAgentGrain>(agentId);
                 var agentStatus = await agentGrain.GetStatus();
@@ -196,7 +196,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
         if (!allBusy)
         {
-            var queueManager = GrainFactory.GetGrain<IQueueManagerGrain>(0);
+            var queueManager = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
             var sessionId = await queueManager.AllocateSinglePendingSession();
             if (sessionId != null)
                 await AssignAgent(sessionId);
@@ -227,7 +227,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
                 await prevAgentGrain.CloseAgent();
             }
 
-            var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(0);
+            var queueManagerGrain = GrainFactory.GetGrain<IQueueManagerGrain>(this.GetPrimaryKeyString());
             var sessionIds = await queueManagerGrain.AllocatePendingSessions();
 
             foreach (var sessionId in sessionIds)

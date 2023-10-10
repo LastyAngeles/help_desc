@@ -5,7 +5,7 @@ using Orleans;
 
 namespace HelpDesc.Api;
 
-public interface IAgentManagerGrain: IGrainWithIntegerKey
+public interface IAgentManagerGrain: IGrainWithStringKey
 {
     Task<Agent> AssignAgent(string sessionId);
     Task<double> GetMaxQueueCapacity();
