@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+
+  help-desc-host:
+    image: help.desc/host:debug
+    ports:
+      - 8765:5000
+    networks:
+      - orleans
+    environment:
+      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesc;password=helpDesc;username=helpDesc
+    depends_on:
+      - db
+      - help-desc-core
+  help-desc-core:
+    image: help.desc/core:debug
+    ports:
+      - 30000:30000
+      - 11111:11111
+    networks:
+      - orleans
+    environment:
+      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesc;password=helpDesc;username=helpDesc
+    depends_on:
+      - db
+  db:
+    image: postgres:14-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ../.postgres:/var/lib/postgresql/data
+    networks:
+      - orleans
+    environment:
+      - POSTGRES_PASSWORD=helpDesc
+      - POSTGRES_USER=helpDesc
+      - POSTGRES_DB=helpDesc
+networks:
+  orleans: {}

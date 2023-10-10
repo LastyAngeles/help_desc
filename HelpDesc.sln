@@ -23,6 +23,14 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{E0FF76C1-D
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HelpDesc.Core.Test", "test\HelpDesc.Core.Test\HelpDesc.Core.Test.csproj", "{224CFACA-6F64-4935-BA05-22E3B81DA33E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{67C7A067-6060-435F-B2E8-965766D4CAA0}"
+	ProjectSection(SolutionItems) = preProject
+		scripts\docker-build.cmd = scripts\docker-build.cmd
+		scripts\docker-compose.yml = scripts\docker-compose.yml
+		scripts\docker-images-clean.cmd = scripts\docker-images-clean.cmd
+		scripts\tye.yaml = scripts\tye.yaml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +59,7 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{224CFACA-6F64-4935-BA05-22E3B81DA33E} = {E0FF76C1-D433-4BFB-9F78-86DE300E55E4}
+		{67C7A067-6060-435F-B2E8-965766D4CAA0} = {937F716B-3626-4FB9-AE21-7E0DE0072080}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F5D12971-71E5-4212-B863-DB7E4D74D81E}
