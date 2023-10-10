@@ -5,6 +5,9 @@ using Orleans.Hosting;
 using Microsoft.Extensions.Hosting;
 using Orleans.Configuration;
 using HelpDesc.Host;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,9 +16,12 @@ builder.Host.UseOrleansClient((context, clientBuilder) =>
     var orleansSection = context.Configuration.GetSection("Orleans");
 
     var persistence = orleansSection.GetSection("Persistence").Get<OrleansPersistence>();
+    var connection = orleansSection.GetSection("Connection").Get<OrleansConnection>();
     var postgresInvariant = "Npgsql";
+    var attempt = 0;
 
     clientBuilder
+        .UseConnectionRetryFilter(RetryFilter)
         .Configure<ClusterOptions>(orleansSection.GetSection("Cluster"))
         .UseAdoNetClustering(options =>
         {
@@ -24,6 +30,18 @@ builder.Host.UseOrleansClient((context, clientBuilder) =>
         })
         // TODO: move to consts (Maxim Meshkov 2023-10-10)
         .AddMemoryStreams("HelpDesc");
+
+    async Task<bool> RetryFilter(Exception exception, CancellationToken cancellationToken)
+    {
+        attempt++;
+        Console.WriteLine(
+            $"Cluster client attempt {attempt} of {connection.MaxAttempts} failed to connect to cluster.  Exception: {exception}");
+        if (attempt > connection.MaxAttempts)
+            return false;
+
+        await Task.Delay(connection.RetryDelay, cancellationToken);
+        return true;
+    }
 });
 
 builder.Services.AddControllers();
