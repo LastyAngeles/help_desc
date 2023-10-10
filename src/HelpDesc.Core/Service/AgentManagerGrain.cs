@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
 using Orleans.Runtime;
+using Orleans.Streams;
 
 namespace HelpDesc.Core.Service;
 
@@ -52,6 +53,10 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         if (currentTeam == null)
             return;
 
+        var agentManagerStream = this.GetStream(this.GetPrimaryKeyString(), SolutionConst.AgentManagerStreamNamespace);
+        // TODO: when to unsubscribe? (Maxim Meshkov 2023-10-10)
+        /*agentManagerSubscription = */await agentManagerStream.SubscribeAsync((@event, _) => HandleAgentStream(@event));
+
         var currentTeamStuff = currentTeam.Stuff;
 
         //core team
@@ -71,6 +76,20 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         // TODO: fix boundaries so that next team is allocated if one minute is left for current team. (Maxim Meshkov 2023-10-09)
         await this.RegisterOrUpdateReminder(TeamShiftReminderName, currentTeam.EndWork - currentTime,
             SolutionConst.ReminderPeriod);
+    }
+
+    private async Task HandleAgentStream(object @event)
+    {
+        if (@event is not AgentEvent _)
+            //ignore
+            return;
+
+        switch (@event)
+        {
+            case AgentStatusChanged statusChangeEvent:
+                await ChangeAgentStatus(statusChangeEvent.AgentId, statusChangeEvent.Status);
+                break;
+        }
     }
 
     private Team AllocateCurrentTeam()
@@ -178,7 +197,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
 
     public Task<double> GetMaxQueueCapacity() => Task.FromResult(maxQueueCapacity);
 
-    public async Task ChangeAgentStatus(string agentId, AgentStatus status)
+    private async Task ChangeAgentStatus(string agentId, AgentStatus status)
     {
         var agent = AgentsPool.FirstOrDefault(x => x.Id == agentId);
 

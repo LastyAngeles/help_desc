@@ -45,6 +45,7 @@ public class AgentGrain : Grain, IAgentGrain
 
         var sessionIds = agentInfo.State.SessionIds;
 
+
         //if agent was busy before deactivation, it would not after
         //tasks would be re-assigned back to the agent
         currentStatus = agentInfo.State.Status == AgentStatus.Closing ? agentInfo.State.Status : AgentStatus.Free;
@@ -151,8 +152,10 @@ public class AgentGrain : Grain, IAgentGrain
                 agentInfo.State.Status = currentStatus;
                 await agentInfo.WriteStateAsync();
 
-                var agentManager = GrainFactory.GetGrain<IAgentManagerGrain>(SolutionHelper.GetGrainIdFromAgentPrimary(this.GetPrimaryKeyString()));
-                await agentManager.ChangeAgentStatus(this.GetPrimaryKeyString(), currentStatus);
+                var agentManagerId = SolutionHelper.GetGrainIdFromAgentPrimary(this.GetPrimaryKeyString());
+
+                var agentManagerStream = this.GetStream(agentManagerId, SolutionConst.AgentManagerStreamNamespace);
+                await agentManagerStream.OnNextAsync(new AgentStatusChanged(this.GetPrimaryKeyString(), currentStatus));
             }
         }
     }

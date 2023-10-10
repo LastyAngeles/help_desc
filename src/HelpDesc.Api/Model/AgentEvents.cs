@@ -21,3 +21,14 @@ public record AgentIsDisposing(string AgentId) : AgentEvent(AgentId)
     {
     }
 }
+
+[GenerateSerializer]
+public record AgentStatusChanged(string AgentId, AgentStatus Status) : AgentEvent(AgentId)
+{
+    public AgentStatusChanged()
+        : this(string.Empty, default)
+    {
+    }
+
+    [Id(1)] public AgentStatus Status { get; set; } = Status;
+}

@@ -85,7 +85,9 @@ public class SessionQueueManagerTest
 
         var queueManager = cluster.GrainFactory.GetGrain<IQueueManagerGrain>(primaryGrainId);
 
-        for (var i = 0; i < maxAgentCapacity; i++)
+        var firstAssignedSessionId = (await queueManager.CreateSession()).Id;
+
+        for (var i = 0; i < maxAgentCapacity - 1; i++)
             await queueManager.CreateSession();
 
         var maxQueueCapacity = await agentManager.GetMaxQueueCapacity();
@@ -100,10 +102,14 @@ public class SessionQueueManagerTest
 
         var lastSession = await queueManager.CreateSession();
         lastSession.Success.Should().BeTrue();
+        (await cluster.GrainFactory.GetGrain<ISessionGrain>(lastSession.Id).GetAllocatedAgentId()).Should().BeNull();
 
         var sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>(lastSession.Id);
         await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
+        await Task.Delay(SecondsBeforeSessionIsDead);
 
+        sessionGrain = cluster.GrainFactory.GetGrain<ISessionGrain>(firstAssignedSessionId);
+        await sessionGrain.ChangeStatus(SessionStatus.Disconnected);
         await Task.Delay(SecondsBeforeSessionIsDead);
 
         agentId = await firstQueuedSession.GetAllocatedAgentId();
