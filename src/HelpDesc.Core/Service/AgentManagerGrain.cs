@@ -70,7 +70,7 @@ public class AgentManagerGrain : Grain, IAgentManagerGrain, IRemindable
         await PopulateTeam(currentTeamStuff, CoreAgentPool, currentTeam.Name);
 
         maxQueueCapacityMultiplier = intervals.MaximumQueueCapacityMultiplier;
-        maxQueueCapacity = CoreAgentPool.Values.Select(x => x.Capacity).Sum() * maxQueueCapacityMultiplier * intervals.MaximumConcurrency;
+        maxQueueCapacity = CoreAgentPool.Values.SelectMany(x => x).Select(x => x.Capacity).Sum() * maxQueueCapacityMultiplier * intervals.MaximumConcurrency;
 
         //overflow team
         var overflowTeam = teamsConfig.OverflowTeam;
