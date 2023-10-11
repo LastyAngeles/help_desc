@@ -27,3 +27,32 @@
 *Example Scenarios*:
 - A team of 2 people: 1 Senior (capacity 8), 1 Junior (capacity 4). If 5 chats arrive, 4 would be assigned to the Junior and 1 to the Senior.
 - A team of 2 Juniors and 1 Mid-Level: If 6 chats arrive, 3 would be assigned to each Junior, and none to the Mid-Level agent.
+
+## Start Application
+
+### Prerequisites:
+* docker
+
+* .net 7 SDK
+
+docker:
+1. Navigate to help_desc\scripts folder and execute `docker-build.cmd`
+2. Execute `docker compose up`
+3. Navigate to localhost:8765/swagger for host main API
+
+_in order to be able to debug with docker setup_
+1. attach to process with connection type `docker`
+2. choose connection target `scripts-help-desc-core-1` or `scripts-help-desc-host-1`
+
+tye:
+1. Execute `dotnet tool restore`
+2. Navigate to help_desc\scripts folder and execute `dotnet tye run`
+3. Navigate to localhost:8765/swagger for host main API
+   
+_in order to be able to debug with tye setup_
+1. attach to process with connection type `default`
+2. choose process to attach `HelpDesc.Host` or `HelpDesc.Core`
+
+### Notes:
+
+1. timezone can be different in case you choose docker startup, so team allocation would be based on "docker timezone"
