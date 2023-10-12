@@ -9,7 +9,7 @@ services:
     networks:
       - orleans
     environment:
-      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesc;password=helpDesc;username=helpDesc
+      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesk;password=helpDesk;username=helpDesk
       - ASPNETCORE_ENVIRONMENT=Development
     depends_on:
       db:
@@ -24,7 +24,7 @@ services:
     networks:
       - orleans
     environment:
-      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesc;password=helpDesc;username=helpDesc
+      - Orleans__Persistence__ConnectionString=host=db:5432;database=helpDesk;password=helpDesk;username=helpDesk
       - DOTNET_ENVIRONMENT=Development
     depends_on:
       db:
@@ -43,8 +43,8 @@ services:
       timeout: 30s
       retries: 5
     environment:
-      - POSTGRES_PASSWORD=helpDesc
-      - POSTGRES_USER=helpDesc
-      - POSTGRES_DB=helpDesc
+      - POSTGRES_PASSWORD=helpDesk
+      - POSTGRES_USER=helpDesk
+      - POSTGRES_DB=helpDesk
 networks:
   orleans: {}

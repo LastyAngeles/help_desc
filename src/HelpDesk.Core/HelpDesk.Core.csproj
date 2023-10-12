@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<ServerGarbageCollection>true</ServerGarbageCollection>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Content Include="Scripts/PostgreSQL-Main.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Scripts/PostgreSQL-Clustering-3.7.0.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Scripts/PostgreSQL-Clustering.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Scripts/PostgreSQL-Persistence.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Scripts/PostgreSQL-Reminders.sql">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="appsettings.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		<PackageReference Include="Microsoft.Orleans.Server" />
+		<PackageReference Include="Microsoft.Orleans.Streaming" />
+		<PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" />
+		<PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" />
+		<PackageReference Include="Microsoft.Orleans.Reminders.AdoNet" />
+		<PackageReference Include="Npgsql" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\HelpDesk.Api\HelpDesk.Api.csproj" />
+	</ItemGroup>
+
+</Project>

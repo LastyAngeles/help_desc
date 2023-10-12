@@ -1,7 +1,7 @@
 
 services:
   - name: host
-    project: ..\src\HelpDesc.Host\HelpDesc.Host.csproj
+    project: ..\src\HelpDesk.Host\HelpDesk.Host.csproj
     bindings:
       - name: http
         port: 8765
@@ -10,7 +10,7 @@ services:
       - name: ASPNETCORE_ENVIRONMENT
         value: Development 
   - name: core
-    project: ..\src\HelpDesc.Core\HelpDesc.Core.csproj
+    project: ..\src\HelpDesk.Core\HelpDesk.Core.csproj
     env:
       - name: DOTNET_ENVIRONMENT
         value: Development 
@@ -23,8 +23,8 @@ services:
       target: /var/lib/postgresql/data
     env:
       - name: POSTGRES_PASSWORD
-        value: helpDesc
+        value: helpDesk
       - name: POSTGRES_USER
-        value: helpDesc
+        value: helpDesk
       - name: POSTGRES_DB
-        value: helpDesc
+        value: helpDesk
