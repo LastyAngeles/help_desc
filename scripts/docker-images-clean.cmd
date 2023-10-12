@@ -1,2 +1,2 @@
-docker rmi help.desc/core:debug
-docker rmi help.desc/host:debug
+docker rmi help.desk/core:debug
+docker rmi help.desk/host:debug

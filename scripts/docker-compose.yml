@@ -2,8 +2,8 @@ version: '3.9'
 
 services:
 
-  help-desc-host:
-    image: help.desc/host:debug
+  help-desk-host:
+    image: help.desk/host:debug
     ports:
       - 8765:5000
     networks:
@@ -14,10 +14,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      help-desc-core:
+      help-desk-core:
         condition: service_started
-  help-desc-core:
-    image: help.desc/core:debug
+  help-desk-core:
+    image: help.desk/core:debug
     ports:
       - 30000:30000
       - 11111:11111

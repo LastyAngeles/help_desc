@@ -1,4 +1,4 @@
-# help desc
+# help desk
 
 ## Task overview
 
@@ -36,17 +36,17 @@
 * .net 7 SDK
 
 docker:
-1. Navigate to help_desc\scripts folder and execute `docker-build.cmd`
+1. Navigate to help_desk\scripts folder and execute `docker-build.cmd`
 2. Execute `docker compose up`
 3. Navigate to localhost:8765/swagger for host main API
 
 _in order to be able to debug with docker setup_
 1. attach to process with connection type `docker`
-2. choose connection target `scripts-help-desc-core-1` or `scripts-help-desc-host-1`
+2. choose connection target `scripts-help-desk-core-1` or `scripts-help-desk-host-1`
 
 tye:
 1. Execute `dotnet tool restore`
-2. Navigate to help_desc\scripts folder and execute `dotnet tye run`
+2. Navigate to help_desk\scripts folder and execute `dotnet tye run`
 3. Navigate to localhost:8765/swagger for host main API
    
 _in order to be able to debug with tye setup_

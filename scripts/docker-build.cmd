@@ -9,5 +9,5 @@ SET hostProject=HelpDesk.Host
 dotnet publish ../src/%coreProject%/%coreProject%.csproj -c %configuration%
 dotnet publish ../src/%hostProject%/%hostProject%.csproj -c %configuration%
 
-docker build ../src/%coreProject%/bin/%configuration%/%dotnetVersion%/publish -t help.desc/core:debug -f ../src/%coreProject%/Dockerfile --build-arg INSTALL_CLRDBG=%installDebugClr%
-docker build ../src/%hostProject%/bin/%configuration%/%dotnetVersion%/publish -t help.desc/host:debug -f ../src/%hostProject%/Dockerfile --build-arg INSTALL_CLRDBG=%installDebugClr%
+docker build ../src/%coreProject%/bin/%configuration%/%dotnetVersion%/publish -t help.desk/core:debug -f ../src/%coreProject%/Dockerfile --build-arg INSTALL_CLRDBG=%installDebugClr%
+docker build ../src/%hostProject%/bin/%configuration%/%dotnetVersion%/publish -t help.desk/host:debug -f ../src/%hostProject%/Dockerfile --build-arg INSTALL_CLRDBG=%installDebugClr%
