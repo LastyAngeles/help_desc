@@ -51,7 +51,7 @@ tye:
    
 _in order to be able to debug with tye setup_
 1. attach to process with connection type `default`
-2. choose process to attach `HelpDesc.Host` or `HelpDesc.Core`
+2. choose process to attach `HelpDesk.Host` or `HelpDesk.Core`
 
 ### Notes:
 
